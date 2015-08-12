@@ -14,8 +14,10 @@ void calculate_I_ref(void) {
       // I_range = 2;     // for range -2 to +2, set during motor
       // controller setup
 
-      if (I_ref > I_range) I_ref = I_range;
-      if (I_ref < (-1.0 * I_range)) I_ref = (-1.0 * I_range);
+      if (I_ref > I_range)
+        I_ref = I_range;
+      if (I_ref < (-1.0 * I_range))
+        I_ref = (-1.0 * I_range);
 
       // maxon controller requires PWM value to be 10% and 90%
       // so, I_ref should be scaцled beetween 103 and 921 (10% and 90% of 1024)

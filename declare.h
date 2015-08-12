@@ -1,14 +1,6 @@
 #ifndef DECLARE_H_
 #define DECLARE_H_
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <time.h>
-#include <bcm2835.h>
-
 // define various pins for testing
 
 #define PWM_PIN RPI_BPLUS_GPIO_J8_12  // pwm
@@ -41,7 +33,6 @@
 #define RST_COUNT RPI_BPLUS_GPIO_J8_11
 
 extern int encoder_flag;    // set when encoder calculation done
-extern int magnet_flag;     // set when magnet calculation done
 extern double dT_PD;        // sampling time for PD loop in seconds
 extern double dT_XD;        // sampling time for xd loop in seconds
 extern double dT_PO;        // sampling time for power loop in seconds

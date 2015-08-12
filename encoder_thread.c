@@ -1,7 +1,14 @@
-#include "declare.h"
 #include "encoder_thread.h"
 
+#include <time.h>
+#include "declare.h"
+
 void encoder_thread(void) {
+  // init timer structure
+  // TODO init timer function ??
+  const struct timespec timer = {.tv_sec = (int)dT_PD,
+                                 .tv_nsec = 1.0E9 * (dT_PD - (int)dT_PD)};
+
   bcm2835_gpio_fsel(ENC_PIN, BCM2835_GPIO_FSEL_OUTP);
 
   bcm2835_gpio_fsel(RST_COUNT, BCM2835_GPIO_FSEL_OUTP);  // reset count
@@ -40,36 +47,32 @@ void encoder_thread(void) {
   bcm2835_gpio_write(RST_COUNT, HIGH);  // now start counting
 
   while (1) {
-    if (sample_encoder) {
-      // bcm2835_gpio_write(ENC_PIN, HIGH);		  // for the
-      // oscilloscope
+    // bcm2835_gpio_write(ENC_PIN, HIGH);		  // for the
+    // oscilloscope
 
-      // code for obtaining value from encoder IC
-      x = calculate_encoder();  // no. of rotations
+    // code for obtaining value from encoder IC
+    x = calculate_encoder();  // no. of rotations
 
-      //			x = (x / 4.81) * 0.002;	// distance
-      // traveled by slider in metres
+    //			x = (x / 4.81) * 0.002;	// distance
+    // traveled by slider in metres
 
-      // code for calculating xf and dx
+    // code for calculating xf and dx
 
-      //			printf("enc_th: freq are : %f,  %f\n",
-      // freq_diff, freq_filt);
-      discrete_diff();    // updating value of dx by calling practical
-                          // differentiator
-      low_pass_filter();  // update xf, the filtered value of x
+    //			printf("enc_th: freq are : %f,  %f\n",
+    // freq_diff, freq_filt);
+    discrete_diff();  // updating value of dx by calling practical
+    // differentiator
+    low_pass_filter();  // update xf, the filtered value of x
 
-      //			printf("enc_th: DX in encoder_thread = %f\n",
-      // dx);
-      //			printf("enc_th: xf in encoder_thread = %f\n",
-      // xf);
-      //		bcm2835_gpio_write(ENC_PIN, LOW);
+    //			printf("enc_th: DX in encoder_thread = %f\n",
+    // dx);
+    //			printf("enc_th: xf in encoder_thread = %f\n",
+    // xf);
+    //		bcm2835_gpio_write(ENC_PIN, LOW);
 
-      // reset time flag
-      sample_encoder = 0;  // reset sampling flag
-
-      // set encoder flag high
-      encoder_flag = 1;  // means encoder calculations done
-    }
+    // set encoder flag high
+    encoder_flag = 1;  // means encoder calculations done
+    nanosleep(&timer, NULL);
   }
 }
 
@@ -150,8 +153,8 @@ float calculate_encoder(void) {
   }
 
   if (count > 1073741824)  // because when motor moves in opposite direction
-                           // then count becomes 2^31.
-    count = 0;             // -1 * count;
+    // then count becomes 2^31.
+    count = 0;  // -1 * count;
 
   float rotation = (float)count / 4096.0;
 

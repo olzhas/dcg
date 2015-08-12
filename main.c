@@ -1,4 +1,9 @@
 #include <stdbool.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <bcm2835.h>
 
 #include "declare.h"
 #include "timer_thread.h"
@@ -7,7 +12,7 @@
 #include "energy_thread.h"
 #include "utilities.h"
 
-bool comparse(int argc, char *argv[]) {
+bool comparse(int argc, char* argv[]) {
   if (argc < 3) {  // must have two arguments: kp and kd
     fprintf(stderr, "\nInsufficient command line arguments, try again\n");
     fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
@@ -20,7 +25,7 @@ bool comparse(int argc, char *argv[]) {
   return true;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   if (comparse(argc, argv) == false) {
     return EXIT_FAILURE;
   }
@@ -53,14 +58,11 @@ int main(int argc, char *argv[]) {
   bcm2835_gpio_write(MOTOR_D3, LOW);
 
   // creating and running threads
-  pthread_t th1, th2, th3, th4, th5, th6, th7;
-  pthread_create(&th1, NULL, (void *)encoder_time_thread, NULL);
-  pthread_create(&th2, NULL, (void *)magnet_time_thread, NULL);
-  pthread_create(&th3, NULL, (void *)encoder_thread, NULL);
-  pthread_create(&th4, NULL, (void *)magnet_thread, NULL);
-  pthread_create(&th5, NULL, (void *)energy_time_thread, NULL);
-  pthread_create(&th6, NULL, (void *)calculate_energy, NULL);
-  pthread_create(&th7, NULL, (void *)calculate_I_ref, NULL);
+  pthread_t th1, th2, th3, th4;
+  pthread_create(&th1, NULL, (void*)encoder_thread, NULL);
+  pthread_create(&th2, NULL, (void*)magnet_thread, NULL);
+  pthread_create(&th3, NULL, (void*)calculate_energy, NULL);
+  pthread_create(&th4, NULL, (void*)calculate_I_ref, NULL);
 
   bcm2835_delay(100);  // delay to make sure that all threads are initialised
                        // and iC-MU is conofigured

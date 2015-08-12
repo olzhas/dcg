@@ -1,6 +1,8 @@
 #ifndef UTILITIES_H_
 #define UTILITIES_H_
 
+#include <math.h>
+
 void calculate_I_ref(void);
 void discrete_diff(void);
 void low_pass_filter(void);

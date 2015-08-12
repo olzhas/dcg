@@ -1,14 +1,15 @@
 #include "declare.h"
 
+#include <time.h>
+
 // declaring various global variables
 
 int encoder_flag = 0;  // set when encoder calculation done
-int magnet_flag = 0;   // set when magnet calculation done
 double dT_PD = 0.001;  // sampling time for PD loop in seconds ( > 0.0001)
-double dT_XD = 0.001;  // sampling time for xd loop in seconds (>0.0001)
+double dT_XD = 2.0;    // sampling time for xd loop in seconds (>0.0001)
 double dT_PO =
     0.01;  // sampling time for power sampling loop in seconds (>0.01)
-           // TODO check if can query the sensor faster (more frequent)
+// TODO: check if can query the sensor faster (more frequent)
 int sample_encoder = 0;  // flag for sampling encoder
 int sample_magnet = 0;   // flag for sampling magnetic sensor
 int sample_energy = 0;   // flag for sampling power

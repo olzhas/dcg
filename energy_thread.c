@@ -2,6 +2,11 @@
 #include "energy_thread.h"
 
 void calculate_energy() {
+  // init timer structure
+  // TODO init timer function ??
+  const struct timespec timer = {.tv_sec = (int)dT_PO,
+                                 .tv_nsec = 1.0E9 * (dT_PO - (int)dT_PO)};
+
   uint8_t send;
   uint8_t data;
 
@@ -32,7 +37,7 @@ void calculate_energy() {
 
   printf("Energy thread started.\n");
 
-  FILE *fp = fopen("current_file.txt", "w");  // Open file for writing
+  FILE* fp = fopen("current_file.txt", "w");  // Open file for writing
   if (fp == NULL) {
     fprintf(stderr, "Cannot open current_file.txt for writing\n");
     exit(EXIT_FAILURE);
@@ -47,21 +52,20 @@ void calculate_energy() {
   send = bcm2835_i2c_write(calib_write, 3);
 
   while (1) {
-    if (sample_energy) {
-      float t = 0.0;
-      bcm2835_i2c_begin();  // I2C begin
-      bcm2835_i2c_set_baudrate(100000);
+    float t = 0.0;
+    bcm2835_i2c_begin();  // I2C begin
+    bcm2835_i2c_set_baudrate(100000);
 
-      bcm2835_i2c_setSlaveAddress(write_address);  // write
-      bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+    bcm2835_i2c_setSlaveAddress(write_address);  // write
+    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
-      //			send =
-      // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
-      send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
-      send = bcm2835_i2c_read_register_rs(bus_addr, bus_volt, 2);
-      send = bcm2835_i2c_read_register_rs(power_addr, pwr, 2);
+    //			send =
+    // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
+    send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
+    send = bcm2835_i2c_read_register_rs(bus_addr, bus_volt, 2);
+    send = bcm2835_i2c_read_register_rs(power_addr, pwr, 2);
 
-      /*
+    /*
 
 int volt_16 = (volt[0]<<8)|(volt[1]);
 if(volt[0] > 127)		   // if sign bit is 1
@@ -77,39 +81,40 @@ to actual voltage value.
 voltage =  (float)volt_read / 100000.0;  // in V
 // this conversion is given in datasheet
 */
-      // bus voltage, resolution is always 4 mV
-      int bus_16 = (bus_volt[0] << 8) | (bus_volt[1]);
-      bus_16 = bus_16 >> 3;
-      bus_voltage = (float)bus_16 * 0.004;  // in Volts
+    // bus voltage, resolution is always 4 mV
+    int bus_16 = (bus_volt[0] << 8) | (bus_volt[1]);
+    bus_16 = bus_16 >> 3;
+    bus_voltage = (float)bus_16 * 0.004;  // in Volts
 
-      int curr_16 = (curr[0] << 8) | (curr[1]);
+    int curr_16 = (curr[0] << 8) | (curr[1]);
 
-      if (curr[0] > 127)  // if sign bit is 1
-        current = (float)(curr_16 - 0x10000) /
-                  1000.0;  // in A (because LSB is 0.5 mA)
-      else
-        current = (float)curr_16 / 1000.0;  // in A
+    if (curr[0] > 127)  // if sign bit is 1
+      current =
+          (float)(curr_16 - 0x10000) / 1000.0;  // in A (because LSB is 0.5 mA)
+    else
+      current = (float)curr_16 / 1000.0;  // in A
 
-      // power LSB = 20 * current LSB = 20 mW. Therefore, power = power read x
-      // 20 (mW)
-      int pow_16 = (pwr[0] << 8) | (pwr[1]);
-      power = ((float)pow_16 * 20.0) / 1000.0;  // (in W)
-      if (current < 0) power = power * -1.0;
+    // power LSB = 20 * current LSB = 20 mW. Therefore, power = power read x
+    // 20 (mW)
+    int pow_16 = (pwr[0] << 8) | (pwr[1]);
+    power = ((float)pow_16 * 20.0) / 1000.0;  // (in W)
+    if (current < 0)
+      power = power * -1.0;
 
-      //			discrete_intg();  // update value of energy
+    //			discrete_intg();  // update value of energy
 
-      // calculate power
-      float power_cal = bus_voltage * current;
+    // calculate power
+    float power_cal = bus_voltage * current;
 
-      //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
-      //%f \n", bus_voltage, current, power_cal, power);
+    //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
+    //%f \n", bus_voltage, current, power_cal, power);
 
-      fprintf(fp, "%f\t%f\n", current, t);
-      su2++;
+    fprintf(fp, "%f\t%f\n", current, t);
+    su2++;
 
-      bcm2835_i2c_end();  // I2C end
-      sample_energy = 0;
-    }
+    bcm2835_i2c_end();  // I2C end
+
+    nanosleep(&timer, NULL);
   }
   fclose(fp);
 }
