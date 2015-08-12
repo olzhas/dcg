@@ -1,7 +1,7 @@
 #include "declare.h"
 #include "energy_thread.h"
 
-void calculate_energy(void) {
+void calculate_energy() {
   uint8_t send;
   uint8_t data;
 

@@ -1,17 +1,16 @@
-// including the required functions' header files
+#include <stdbool.h>
 
 #include "declare.h"
 #include "timer_thread.h"
 #include "encoder_thread.h"
 #include "magnet_thread.h"
-#include "filters.h"
 #include "energy_thread.h"
-#include "calculate_I_ref.h"
+#include "utilities.h"
 
 bool comparse(int argc, char *argv[]) {
   if (argc < 3) {  // must have two arguments: kp and kd
     fprintf(stderr, "\nInsufficient command line arguments, try again\n");
-    fprintf(stderr, "\n%s kp kd\n", argv[0]);
+    fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
     return false;
   }
 
@@ -22,9 +21,13 @@ bool comparse(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  bcm2835_init();
+  if (comparse(argc, argv) == false) {
+    return EXIT_FAILURE;
+  }
 
-  if (comparse(argc, argv) == false) return EXIT_FAILURE;
+  if (bcm2835_init() == false) {
+    return EXIT_FAILURE;
+  }
 
   // setting PWM_PIN as pwm from channel 0 in markspace mode with range = RANGE
   bcm2835_gpio_fsel(PWM_PIN, BCM2835_GPIO_FSEL_ALT5);  // ALT5 is pwm mode
@@ -55,8 +58,7 @@ int main(int argc, char *argv[]) {
   pthread_create(&th2, NULL, (void *)magnet_time_thread, NULL);
   pthread_create(&th3, NULL, (void *)encoder_thread, NULL);
   pthread_create(&th4, NULL, (void *)magnet_thread, NULL);
-  pthread_create(&th5, NULL, (void *)energy_time_thread,  // TODO refactor power
-                 NULL);                                   // probably remove
+  pthread_create(&th5, NULL, (void *)energy_time_thread, NULL);
   pthread_create(&th6, NULL, (void *)calculate_energy, NULL);
   pthread_create(&th7, NULL, (void *)calculate_I_ref, NULL);
 

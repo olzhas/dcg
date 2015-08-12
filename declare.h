@@ -3,11 +3,11 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <bcm2835.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
-#include <stdlib.h>
+#include <bcm2835.h>
 
 // define various pins for testing
 
