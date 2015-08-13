@@ -6,7 +6,7 @@
 
 int encoder_flag = 0;  // set when encoder calculation done
 double dT_PD = 0.001;  // sampling time for PD loop in seconds ( > 0.0001)
-double dT_XD = 2.0;    // sampling time for xd loop in seconds (>0.0001)
+double dT_XD = 0.001;  // sampling time for xd loop in seconds (>0.0001)
 double dT_PO =
     0.01;  // sampling time for power sampling loop in seconds (>0.01)
 // TODO: check if can query the sensor faster (more frequent)

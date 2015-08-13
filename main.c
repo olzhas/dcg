@@ -6,7 +6,6 @@
 #include <bcm2835.h>
 
 #include "declare.h"
-#include "timer_thread.h"
 #include "encoder_thread.h"
 #include "magnet_thread.h"
 #include "energy_thread.h"
@@ -59,13 +58,20 @@ int main(int argc, char* argv[]) {
 
   // creating and running threads
   pthread_t th1, th2, th3, th4;
-  pthread_create(&th1, NULL, (void*)encoder_thread, NULL);
-  pthread_create(&th2, NULL, (void*)magnet_thread, NULL);
-  pthread_create(&th3, NULL, (void*)calculate_energy, NULL);
-  pthread_create(&th4, NULL, (void*)calculate_I_ref, NULL);
 
-  bcm2835_delay(100);  // delay to make sure that all threads are initialised
-                       // and iC-MU is conofigured
+  // FIXME: test the function (SPI work well after a while)
+  pthread_create(&th1, NULL, (void*)magnet_thread, NULL);
+  // FIXME: test the function
+  pthread_create(&th2, NULL, (void*)encoder_thread, NULL);
+  // FIXME: test the function
+  pthread_create(&th3, NULL, (void*)calculate_energy, NULL);
+  // FIXME: test the function
+  pthread_create(&th4, NULL, (void*)calculate_I_ref, NULL);
+  //*/
+
+  bcm2835_delay(300);
+  // delay to make sure that all threads are initialised
+  // and iC-MU is conofigured
   printf("\nPress enter to start the motor.");
   getchar();
   bcm2835_gpio_write(MOTOR_D3, HIGH);
