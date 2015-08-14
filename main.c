@@ -59,7 +59,6 @@ int main(int argc, char* argv[]) {
   // creating and running threads
   pthread_t th1, th2, th3, th4;
 
-  // FIXME: test the function (SPI work well after a while)
   pthread_create(&th1, NULL, (void*)magnet_thread, NULL);
   // FIXME: test the function
   pthread_create(&th2, NULL, (void*)encoder_thread, NULL);

@@ -2,7 +2,8 @@
 
 #include "declare.h"
 
-void calculate_I_ref(void) {
+//==============================================================================
+void calculate_I_ref() {
   while (start == 0) {
   }
 
@@ -33,6 +34,7 @@ void calculate_I_ref(void) {
   }
 }
 
+//==============================================================================
 void discrete_diff() {
   static double x_old[2] = {0.0, 0.0};
   static double dx_old[2] = {0.0, 0.0};
@@ -68,6 +70,7 @@ void discrete_diff() {
   //	printf("Diff. Done. and dx = %f\n", derivative);
 }
 
+//==============================================================================
 void low_pass_filter() {
   static float x_old[2] = {0.0, 0.0};
   static float xf_old[2] = {0.0, 0.0};
@@ -100,6 +103,7 @@ void low_pass_filter() {
   //	printf("filt: Filtering done and xf = %f\n", xf);
 }
 
+//==============================================================================
 void discrete_intg() {
   static float pow_old;
   static float E_old;

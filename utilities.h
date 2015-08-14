@@ -3,9 +3,9 @@
 
 #include <math.h>
 
-void calculate_I_ref(void);
-void discrete_diff(void);
-void low_pass_filter(void);
-void discrete_intg(void);
+void calculate_I_ref();
+void discrete_diff();
+void low_pass_filter();
+void discrete_intg();
 
 #endif  // UTILITIES_H_

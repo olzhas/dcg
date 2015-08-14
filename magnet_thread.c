@@ -1,6 +1,11 @@
 #include "declare.h"
 #include "magnet_thread.h"
+#include "utilities.h"
 #include <time.h>
+
+#define SPI_DELAY 1000  // in nanoseconds
+#define NSEC_DELAY(DURATION) \
+  nanosleep((struct timespec[]){{.tv_sec = 0, .tv_nsec = DURATION}}, NULL);
 
 void magnet_thread() {
   // init timer structure
@@ -28,7 +33,7 @@ void magnet_thread() {
 
     bcm2835_gpio_write(PA0, LOW);
     bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
-    nanosleep((struct timespec[]){{.tv_sec = 0, .tv_nsec = 200}}, NULL);
+    NSEC_DELAY(SPI_DELAY);
     bcm2835_gpio_write(PA0, HIGH);
 
     if (mag_in[1] == 0x80) {
@@ -37,7 +42,7 @@ void magnet_thread() {
 
       bcm2835_gpio_write(PA0, LOW);
       bcm2835_spi_transfernb(status, status_in, sizeof(status_in));
-      nanosleep((struct timespec[]){{.tv_sec = 0, .tv_nsec = 200}}, NULL);
+      NSEC_DELAY(SPI_DELAY);
       bcm2835_gpio_write(PA0, HIGH);
 
       float mag_reading = (256.0 * status_in[1]) + status_in[2];
