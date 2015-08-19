@@ -12,11 +12,6 @@
 //==============================================================================
 void encoder_thread()
 {
-    // init timer structure
-    // TODO init timer function ??
-    const struct timespec timer = {.tv_sec = (int)dT_PD,
-        .tv_nsec = 1.0E9 * (dT_PD - (int)dT_PD) };
-
     bcm2835_gpio_fsel(ENC_PIN, BCM2835_GPIO_FSEL_OUTP);
 
     bcm2835_gpio_fsel(RST_COUNT, BCM2835_GPIO_FSEL_OUTP); // reset count
@@ -51,12 +46,12 @@ void encoder_thread()
 
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
 
-    while (1) {
+    for (;;) {
 
         // code for obtaining value from encoder IC
         x = calculate_encoder(); // no. of rotations
 
-        //			x = (x / 4.81) * 0.002;	// distance
+        // x = (x / 4.81) * 0.002;	// distance
         // traveled by slider in metres
 
         // code for calculating xf and dx
@@ -68,7 +63,6 @@ void encoder_thread()
         low_pass_filter(); // update xf, the filtered value of x
 
         // calculate_I_ref();
-        nanosleep(&timer, NULL);
     }
 }
 
@@ -220,7 +214,7 @@ void calculate_energy()
     send = bcm2835_i2c_write(config_write, 3);
     send = bcm2835_i2c_write(calib_write, 3);
 
-    while (1) {
+    for (;;) {
         float t = 0.0;
         bcm2835_i2c_begin(); // I2C begin
         bcm2835_i2c_set_baudrate(100000);
@@ -265,8 +259,6 @@ void calculate_energy()
         su2++;
 
         bcm2835_i2c_end(); // I2C end
-
-        nanosleep(&timer, NULL);
     }
     fclose(fp);
 }
@@ -280,11 +272,6 @@ void calculate_energy()
 //==============================================================================
 void magnet_thread()
 {
-    // init timer structure
-    // TODO init timer function ??
-    const struct timespec timer = {.tv_sec = (int)dT_XD,
-        .tv_nsec = 1.0E9 * (dT_XD - (int)dT_XD) };
-
     printf("Magnet thread started.\n");
 
     bcm2835_spi_begin();
@@ -294,10 +281,7 @@ void magnet_thread()
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
 
-    while (!start) {
-    }
-
-    while (1) {
+    for (;;) {
         // code for obtaining value from iC-MU
         char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
         //  rest depends on the opcode
@@ -347,12 +331,5 @@ void magnet_thread()
         }
         //			xd = 100.0;
         // bcm2835_gpio_write(MAG_PIN, LOW);
-
-        // reset sampling flag
-        // sample_magnet = 0;
-
-        // set magnet flag high
-
-        nanosleep(&timer, NULL);
     }
 }
