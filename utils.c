@@ -9,7 +9,7 @@
 #include "declare.h"
 
 //==============================================================================
-void calculate_I_ref()
+void calculate_current_ref()
 {
     printf("x_desired = %f, x_filtered = %f\n", xd, xf);
 
@@ -35,7 +35,7 @@ void calculate_I_ref()
 }
 
 //==============================================================================
-void discrete_diff()
+double discrete_diff(struct* state_ state)
 {
     static double x_old[2] = { 0.0, 0.0 };
     static double dx_old[2] = { 0.0, 0.0 };
@@ -126,4 +126,32 @@ void discrete_intg()
     E_old = energy;
 
     pow_old = power;
+}
+
+//==============================================================================
+// FIXME added error messages
+void PWM_init()
+{
+    // setting PWM_PIN as pwm from channel 0 in markspace mode with range = RANGE
+    bcm2835_gpio_fsel(PWM_PIN, BCM2835_GPIO_FSEL_ALT5); // ALT5 is pwm mode
+    bcm2835_pwm_set_clock(
+        BCM2835_PWM_CLOCK_DIVIDER_16); // pwm freq = 19.2 / 16 MHz
+    bcm2835_pwm_set_mode(PWM_CHANNEL, 1, 1); // markspace mode
+    bcm2835_pwm_set_range(PWM_CHANNEL, RANGE);
+
+    bcm2835_gpio_fsel(OE_SHIFTER, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_set_pud(
+        OE_SHIFTER,
+        BCM2835_GPIO_PUD_DOWN); // pull-down for output enable of logic shifters
+
+    bcm2835_gpio_fsel(MOTOR_D3, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_set_pud(MOTOR_D3,
+        BCM2835_GPIO_PUD_DOWN); // pull-down for motor enable
+
+    bcm2835_gpio_fsel(PA0, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_set_pud(PA0, BCM2835_GPIO_PUD_UP);
+    bcm2835_gpio_write(PA0, HIGH);
+
+    bcm2835_gpio_write(OE_SHIFTER, HIGH);
+    bcm2835_gpio_write(MOTOR_D3, LOW);
 }

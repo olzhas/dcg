@@ -15,38 +15,26 @@ void encoder_thread()
 {
     ENCODER_init();
 
+    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     printf("Encoder Thread started.\n");
 
-    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
-
     for (;;) {
-
         // code for obtaining value from encoder IC
-        x = ENCODER_read(); // no. of rotations
+        state->x = ENCODER_read(); // no. of rotations
 
-        // x = (x / 4.81) * 0.002;	// distance
-        // traveled by slider in metres
+        // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-        // code for calculating xf and dx
-
-        //			printf("enc_th: freq are : %f,  %f\n",
-        // freq_diff, freq_filt);
-        discrete_diff(); // updating value of dx by calling practical
+        state->xd = discrete_diff(state); // updating value of dx by calling practical
         // differentiator
-        low_pass_filter(); // update xf, the filtered value of x
+        state->x_filtered = low_pass_filter(state); // update xf, the filtered value of x
 
-        // calculate_I_ref();
+        state->current_ref = calculate_current_ref(state);
     }
 }
 
 //==============================================================================
 void calculate_energy()
 {
-    // init timer structure
-    // TODO init timer function ??
-    const struct timespec timer = {.tv_sec = (int)dT_PO,
-        .tv_nsec = 1.0E9 * (dT_PO - (int)dT_PO) };
-
     uint8_t send;
     uint8_t data;
 
@@ -139,6 +127,7 @@ void calculate_energy()
     }
     fclose(fp);
 }
+
 #define SPI_DELAY 1000 // in nanoseconds
 
 #define NSEC_DELAY(DURATION)                                        \

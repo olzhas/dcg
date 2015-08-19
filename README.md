@@ -9,12 +9,15 @@ http://man7.org/linux/man-pages/man7/pthreads.7.html
 
 Build
 =============
+```
 # mkdir build && cd build
 # cmake ..
+```
 
 if gcc-4.7 is not your default compiler
-
+```
 # CC=gcc-4.7 cmake ..
+```
 
 Remarks
 =============

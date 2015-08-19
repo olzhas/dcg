@@ -16,48 +16,38 @@
 #include "tasks.h"
 #include "utils.h"
 
-//==============================================================================
 int main(int argc, char* argv[])
 {
-    struct state_ state;
-    struct config_ config;
-
     if (argc < 3) {
         fprintf(stderr, "\nInsufficient command line arguments, try again\n");
         fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
         return EXIT_FAILURE;
     }
-    else {
-        config.kp = strtod(argv[1], NULL);
-        config.kd = strtod(argv[2], NULL);
-    }
 
-    if (bcm2835_init() == false) {
+    /* configuration stage */
+    struct config_ config;
+
+    config.freq_diff = 200.0;
+    config.freq_filt = 200.0;
+    config.current_range = 2.0; // for range -x to +x put I_range = x
+    config.kp = strtod(argv[1], NULL);
+    config.kd = strtod(argv[2], NULL);
+
+    uint64_t freq_nanosec[3] = {
+        1e6, // quadrature encoder
+        1e6, // magnetic encoder
+        10e6 // power-energy sensor
+        // TODO: check if can query the sensor faster (more frequent)
+    };
+
+    struct state_ state;
+    state.config = &config;
+
+    /* init the library */
+    if (bcm2835_init() == 0)
         exit(EXIT_FAILURE);
-    }
 
-    // setting PWM_PIN as pwm from channel 0 in markspace mode with range = RANGE
-    bcm2835_gpio_fsel(PWM_PIN, BCM2835_GPIO_FSEL_ALT5); // ALT5 is pwm mode
-    bcm2835_pwm_set_clock(
-        BCM2835_PWM_CLOCK_DIVIDER_16); // pwm freq = 19.2 / 16 MHz
-    bcm2835_pwm_set_mode(PWM_CHANNEL, 1, 1); // markspace mode
-    bcm2835_pwm_set_range(PWM_CHANNEL, RANGE);
-
-    bcm2835_gpio_fsel(OE_SHIFTER, BCM2835_GPIO_FSEL_OUTP);
-    bcm2835_gpio_set_pud(
-        OE_SHIFTER,
-        BCM2835_GPIO_PUD_DOWN); // pull-down for output enable of logic shifters
-
-    bcm2835_gpio_fsel(MOTOR_D3, BCM2835_GPIO_FSEL_OUTP);
-    bcm2835_gpio_set_pud(MOTOR_D3,
-        BCM2835_GPIO_PUD_DOWN); // pull-down for motor enable
-
-    bcm2835_gpio_fsel(PA0, BCM2835_GPIO_FSEL_OUTP);
-    bcm2835_gpio_set_pud(PA0, BCM2835_GPIO_PUD_UP);
-    bcm2835_gpio_write(PA0, HIGH);
-
-    bcm2835_gpio_write(OE_SHIFTER, HIGH);
-    bcm2835_gpio_write(MOTOR_D3, LOW);
+    PWM_init();
 
     /* setting up timers */
 
@@ -127,9 +117,6 @@ int main(int argc, char* argv[])
     struct itimerspec its[2];
     timer_t timerid[2];
 
-    uint64_t freq_nanosec[2] = { 100e3, 100e3 };
-    uint64_t start_delay = 200e6;
-
     for (i = 0; i < 2; i++) {
         sev[i].sigev_notify = SIGEV_SIGNAL;
         sev[i].sigev_signo = SIGRTMIN + i;
@@ -137,8 +124,8 @@ int main(int argc, char* argv[])
         if (timer_create(CLOCK_REALTIME, &sev[i], &timerid[i]) == -1)
             handle_error_en(-1, "timer_create");
 
-        its[i].it_value.tv_sec = now.tv_sec + (now.tv_nsec + start_delay) / 1000000000;
-        its[i].it_value.tv_nsec = (now.tv_nsec + start_delay) % 1000000000; // start in 100ms
+        its[i].it_value.tv_sec = now.tv_sec + (now.tv_nsec + START_TIMER_DELAY) / 1000000000;
+        its[i].it_value.tv_nsec = (now.tv_nsec + START_TIMER_DELAY) % 1000000000; // start in 100ms
         its[i].it_interval.tv_sec = 0;
         its[i].it_interval.tv_nsec = freq_nanosec[i];
 

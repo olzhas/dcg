@@ -32,25 +32,25 @@
 #define MOTOR_D3 RPI_BPLUS_GPIO_J8_08
 #define RST_COUNT RPI_BPLUS_GPIO_J8_11
 
-struct {
-    double x; // position
-    double xf; // filtered value of position
-    double xd; // desired value of position
-    double dx; // motor speed
-    double I_ref; // reference current (control action)
-    double I_range; // for calculating PWM value
-    double power; // instantaneous power measured by IC
-    double energy;
-} state_;
+#define START_TIMER_DELAY 200000000 // 200e6 = 200ms
 
 struct {
-    double dT_PD; // sampling time for PD loop in seconds
-    double dT_XD; // sampling time for xd loop in seconds
-    double dT_PO; // sampling time for power loop in seconds
     double freq_diff; // differentiator cut-off frequency
     double freq_filt;
     double kp; // kp for PD loop
     double kd; // kd for PD loop
+    double current_range; // for calculating PWM value
 } config_;
+
+struct {
+    double x; // position
+    double x_filtered; // filtered value of position
+    double x_desired; // desired value of position
+    double dx; // motor speed
+    double current_ref; // reference current (control action)
+    double power; // instantaneous power measured by IC
+    double energy;
+    struct* config_ config;
+} state_;
 
 #endif // DECLARE_H_
