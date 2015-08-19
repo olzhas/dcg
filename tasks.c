@@ -22,7 +22,7 @@ void encoder_thread()
     for (;;) {
 
         // code for obtaining value from encoder IC
-        x = calculate_encoder(); // no. of rotations
+        x = ENCODER_read(); // no. of rotations
 
         // x = (x / 4.81) * 0.002;	// distance
         // traveled by slider in metres
@@ -37,102 +37,6 @@ void encoder_thread()
 
         // calculate_I_ref();
     }
-}
-
-//==============================================================================
-float calculate_encoder()
-{
-    uint32_t encoder_array = 0;
-
-    // setting OE for counter
-    bcm2835_gpio_write(OE_COUNT, LOW);
-
-    // reading MSB (24-31)
-
-    bcm2835_gpio_write(SEL1, LOW);
-    bcm2835_gpio_write(SEL2, HIGH);
-
-    encoder_array |= bcm2835_gpio_lev(D0) << 24;
-    encoder_array |= bcm2835_gpio_lev(D1) << 25;
-    encoder_array |= bcm2835_gpio_lev(D2) << 26;
-    encoder_array |= bcm2835_gpio_lev(D3) << 27;
-    encoder_array |= bcm2835_gpio_lev(D4) << 28;
-    encoder_array |= bcm2835_gpio_lev(D5) << 29;
-    encoder_array |= bcm2835_gpio_lev(D6) << 30;
-    encoder_array |= bcm2835_gpio_lev(D7) << 31;
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
-
-    // reading 3rd Byte (16-23)
-
-    bcm2835_gpio_write(SEL1, HIGH);
-    bcm2835_gpio_write(SEL2, HIGH);
-
-    encoder_array |= bcm2835_gpio_lev(D0) << 16;
-    encoder_array |= bcm2835_gpio_lev(D1) << 17;
-    encoder_array |= bcm2835_gpio_lev(D2) << 18;
-    encoder_array |= bcm2835_gpio_lev(D3) << 19;
-    encoder_array |= bcm2835_gpio_lev(D4) << 20;
-    encoder_array |= bcm2835_gpio_lev(D5) << 21;
-    encoder_array |= bcm2835_gpio_lev(D6) << 22;
-    encoder_array |= bcm2835_gpio_lev(D7) << 23;
-
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
-
-    // reading 2nd byte (8-15)
-
-    bcm2835_gpio_write(SEL1, LOW);
-    bcm2835_gpio_write(SEL2, LOW);
-
-    encoder_array |= bcm2835_gpio_lev(D0) << 8;
-    encoder_array |= bcm2835_gpio_lev(D1) << 9;
-    encoder_array |= bcm2835_gpio_lev(D2) << 10;
-    encoder_array |= bcm2835_gpio_lev(D3) << 11;
-    encoder_array |= bcm2835_gpio_lev(D4) << 12;
-    encoder_array |= bcm2835_gpio_lev(D5) << 13;
-    encoder_array |= bcm2835_gpio_lev(D6) << 14;
-    encoder_array |= bcm2835_gpio_lev(D7) << 15;
-
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
-
-    // reading LSB (0-7)
-
-    bcm2835_gpio_write(SEL1, HIGH);
-    bcm2835_gpio_write(SEL2, LOW);
-
-    encoder_array |= bcm2835_gpio_lev(D0) << 0;
-    encoder_array |= bcm2835_gpio_lev(D1) << 1;
-    encoder_array |= bcm2835_gpio_lev(D2) << 2;
-    encoder_array |= bcm2835_gpio_lev(D3) << 3;
-    encoder_array |= bcm2835_gpio_lev(D4) << 4;
-    encoder_array |= bcm2835_gpio_lev(D5) << 5;
-    encoder_array |= bcm2835_gpio_lev(D6) << 6;
-    encoder_array |= bcm2835_gpio_lev(D7) << 7;
-
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
-
-    printf("\n");
-    // reset OE value
-    bcm2835_gpio_write(OE_COUNT, HIGH);
-
-    // convert data to decimal
-
-    int count = encoder_array;
-    printf("UNION: dec %d - hex 0x%x, sizeof %d\n", count, count,
-        sizeof(encoder_array));
-
-    float rotation = (float)count / 4096.0;
-    //	printf("Decimal value of x = %d \n",count);
-    //	printf("Rotations = %f \n",rotation);
-
-    return rotation;
 }
 
 //==============================================================================

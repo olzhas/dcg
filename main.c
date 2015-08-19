@@ -19,18 +19,21 @@
 //==============================================================================
 int main(int argc, char* argv[])
 {
+    struct state_ state;
+    struct config_ config;
+
     if (argc < 3) {
         fprintf(stderr, "\nInsufficient command line arguments, try again\n");
         fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
         return EXIT_FAILURE;
     }
     else {
-        kp = atof(argv[1]);
-        kd = atof(argv[2]);
+        config.kp = strtod(argv[1], NULL);
+        config.kd = strtod(argv[2], NULL);
     }
 
     if (bcm2835_init() == false) {
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // setting PWM_PIN as pwm from channel 0 in markspace mode with range = RANGE

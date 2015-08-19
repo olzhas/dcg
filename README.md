@@ -15,3 +15,10 @@ Build
 if gcc-4.7 is not your default compiler
 
 # CC=gcc-4.7 cmake ..
+
+Remarks
+=============
+
+max number of signals it is possible to send is
+    SIGRTMAX - SIGRTMIN = 30
+on raspbian

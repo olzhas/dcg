@@ -3,21 +3,21 @@
 
 // define various pins for testing
 
-#define PWM_PIN RPI_BPLUS_GPIO_J8_12  // pwm
+#define PWM_PIN RPI_BPLUS_GPIO_J8_12 // pwm
 #define ENC_PIN RPI_BPLUS_GPIO_J8_38
 #define MAG_PIN RPI_BPLUS_GPIO_J8_40
 
 #define PWM_CHANNEL 0
-#define RANGE 1024  // pwm range = (0-1024)
+#define RANGE 1024 // pwm range = (0-1024)
 #define BILLION 1E9
 #define CHECK_BIT(var, pos) ((var) & (1 << (pos)))
 
 // defining pins for quadrature decoder (encoder counter)
 
-#define OE_COUNT RPI_BPLUS_GPIO_J8_13  // output enable for encoder counter
-#define SEL1 RPI_BPLUS_GPIO_J8_16      // sel 1 for encoder counter
-#define SEL2 RPI_BPLUS_GPIO_J8_18      // sel 2 for encoder counter
-#define D0 RPI_BPLUS_GPIO_J8_22        // 8 data pins
+#define OE_COUNT RPI_BPLUS_GPIO_J8_13 // output enable for encoder counter
+#define SEL1 RPI_BPLUS_GPIO_J8_16 // sel 1 for encoder counter
+#define SEL2 RPI_BPLUS_GPIO_J8_18 // sel 2 for encoder counter
+#define D0 RPI_BPLUS_GPIO_J8_22 // 8 data pins
 #define D1 RPI_BPLUS_GPIO_J8_33
 #define D2 RPI_BPLUS_GPIO_J8_32
 #define D3 RPI_BPLUS_GPIO_J8_31
@@ -32,21 +32,25 @@
 #define MOTOR_D3 RPI_BPLUS_GPIO_J8_08
 #define RST_COUNT RPI_BPLUS_GPIO_J8_11
 
-extern double dT_PD;   // sampling time for PD loop in seconds
-extern double dT_XD;   // sampling time for xd loop in seconds
-extern double dT_PO;   // sampling time for power loop in seconds
-extern int start;      // flag for starting the motor and other threads
-extern float x;        // position
-extern float xf;       // filtered value of position
-extern float xd;       // desired value of position
-extern float dx;       // motor speed
-extern float I_ref;    // reference current (control action)
-extern float kp;       // kp for PD loop
-extern float kd;       // kd for PD loop
-extern float I_range;  // for calculating PWM value
-extern float power;    // instantaneous power measured by IC
-extern float energy;
-extern double freq_diff;  // differentiator cut-off frequency
-extern float freq_filt;
+struct {
+    double x; // position
+    double xf; // filtered value of position
+    double xd; // desired value of position
+    double dx; // motor speed
+    double I_ref; // reference current (control action)
+    double I_range; // for calculating PWM value
+    double power; // instantaneous power measured by IC
+    double energy;
+} state_;
 
-#endif  // DECLARE_H_
+struct {
+    double dT_PD; // sampling time for PD loop in seconds
+    double dT_XD; // sampling time for xd loop in seconds
+    double dT_PO; // sampling time for power loop in seconds
+    double freq_diff; // differentiator cut-off frequency
+    double freq_filt;
+    double kp; // kp for PD loop
+    double kd; // kd for PD loop
+} config_;
+
+#endif // DECLARE_H_
