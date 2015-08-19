@@ -13,6 +13,6 @@ endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
-
-add_executable (program main.c declare.c tasks.c utils.c)
-target_link_libraries(program bcm2835 pthread rt m)
+aux_source_directory(. SRC_LIST)
+add_executable(${PROJECT_NAME} ${SRC_LIST})
+target_link_libraries(${PROJECT_NAME} bcm2835 pthread rt m)
