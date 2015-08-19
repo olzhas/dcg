@@ -1,8 +1,13 @@
 #include "tasks.h"
-// for #include <.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
 #include <time.h>
-#include "utils.h"
+#include <bcm2835.h>
+
 #include "declare.h"
+#include "utils.h"
 
 //==============================================================================
 void encoder_thread()
