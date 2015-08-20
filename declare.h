@@ -1,6 +1,8 @@
 #ifndef DECLARE_H_
 #define DECLARE_H_
 
+#include <stdint.h>
+
 // define various pins for testing
 
 #define PWM_PIN RPI_BPLUS_GPIO_J8_12 // pwm
@@ -40,6 +42,7 @@ struct config_ {
     double kp; // kp for PD loop
     double kd; // kd for PD loop
     double current_range; // for calculating PWM value
+    uint32_t controller_freq;
 };
 
 struct state_ {

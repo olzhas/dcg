@@ -11,15 +11,17 @@
 #include "utils.h"
 
 //==============================================================================
-void encoder_thread(void* data)
+void control_thread(void* data)
 {
     struct state_* pstate = (struct state_*)data;
+    // TODO move somewhere else
     ENCODER_init();
 
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     printf("Encoder Thread started.\n");
 
     for (;;) {
+        // TODO sigwait
         // code for obtaining value from encoder IC
         pstate->x = ENCODER_read(); // no. of rotations
 
@@ -84,6 +86,7 @@ void calculate_energy(void* data)
     send = bcm2835_i2c_write(calib_write, 3);
 
     for (;;) {
+        // TODO sigwait
         float t = 0.0;
         bcm2835_i2c_begin(); // I2C begin
         bcm2835_i2c_set_baudrate(100000);
@@ -153,6 +156,7 @@ void magnet_thread(void* data)
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
 
     for (;;) {
+        // TODO sigwait
         // code for obtaining value from iC-MU
         char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
         //  rest depends on the opcode

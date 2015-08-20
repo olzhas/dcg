@@ -27,6 +27,7 @@ int main(int argc, char* argv[])
     /* configuration stage */
     struct config_ config;
 
+    config.controller_freq = 1e6;
     config.freq_diff = 200.0;
     config.freq_filt = 200.0;
     config.current_range = 2.0; // for range -x to +x put I_range = x
@@ -34,12 +35,13 @@ int main(int argc, char* argv[])
     config.kd = strtod(argv[2], NULL);
 
     uint64_t freq_nanosec[3] = {
-        1e6, // quadrature encoder
+        config.controller_freq, // FIXME: quadrature encoder or pd controller freq?
         1e6, // magnetic encoder
         10e6 // power-energy sensor
         // TODO: check if can query the sensor faster (more frequent)
     };
 
+    /* store information about the state */
     struct state_ state;
     state.config = &config;
 
@@ -53,15 +55,14 @@ int main(int argc, char* argv[])
 
     // main thread should ignore SIGRTMIN to SIGRTMAX
     int i;
-    int n;
     struct sigaction disp;
 
     bzero(&disp, sizeof(disp));
     disp.sa_handler = SIG_IGN;
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < 1; i++) {
         if (sigaction(SIGRTMIN + i, &disp, NULL) < 0) {
-            syslog(LOG_CRIT, "sigaction_main: %m");
-            _exit(1);
+            syslog(LOG_CRIT, "sigaction_main: %m"); // TODO another methor for logging info
+            _exit(EXIT_FAILURE);
         }
     }
 
@@ -75,7 +76,7 @@ int main(int argc, char* argv[])
     struct sched_param sch_param[2];
     int policy[2] = { 0, 0 };
     void* task_func[] = {
-        magnet_thread, encoder_thread, calculate_energy
+        control_thread, magnet_thread, calculate_energy
     };
 
     sigset_t mask_set;

@@ -22,9 +22,9 @@ double calculate_current_ref(const struct state_* pstate)
 
     // calculate I_ref and convert to pwm value
     current_ref = (double)((kp) * (xd - xf)) - (kd) * (dx);
-    // I_range = 2;     // for range -2 to +2, set during motor
     // controller setup
 
+    // limitting current
     double current_range = pstate->config->current_range;
     if (current_ref > current_range) {
         current_ref = current_range;
@@ -44,27 +44,29 @@ double discrete_diff(const struct state_* pstate)
     static double dx_old[2] = { 0.0, 0.0 };
 
     double freq_diff = pstate->config->freq_diff;
+    double dT_PD = pstate->config->controller_freq;
     long double tau = 1.0 / (2.0 * M_PI * freq_diff);
 
-    //double temp1 = (2.0 * tau + dT_PD); //FIXME
-    //double temp2 = (2.0 * tau - dT_PD); //FIXME
+    double temp1 = (2.0 * tau + dT_PD);
+    double temp2 = (2.0 * tau - dT_PD);
 
     // printf("filt: temps = %.10f,  %.10f\n",temp1, temp2);
 
-    //float A = 2.0 * (dT_PD / (temp1 * temp1)); // FIXME
-    //float B = -1.0 * A; //FIXME
-    //float C = 2.0 * (temp2 / temp1); //FIXME
-    //float D = -1.0 * (temp2 / temp1) * (temp2 / temp1);//FIXME
+    double A = 2.0 * (dT_PD / (temp1 * temp1));
+    double B = -1.0 * A;
+    double C = 2.0 * (temp2 / temp1);
+    double D = -1.0 * (temp2 / temp1) * (temp2 / temp1);
     static int itr = 1;
 
     double dx;
-    //dx = A * x + B * x_old[1] + C * dx_old[0] + D * dx_old[1]; // FIXME
+    double x = pstate->x;
+    dx = A * x + B * x_old[1] + C * dx_old[0] + D * dx_old[1];
 
     //printf("A B C D are: %f,  %f,  %f,  %f\n", A, B, C, D);
     //printf("dT, tau are: %f,  %.10f\n", dT, tau);
 
     if (itr < 3) {
-        //dx = (x - x_old[0]) / dT_PD; //FIXME
+        dx = (x - x_old[0]) / dT_PD;
         ++itr;
     }
 
@@ -80,46 +82,40 @@ double discrete_diff(const struct state_* pstate)
 //==============================================================================
 double low_pass_filter(const struct state_* pstate)
 {
-
     static float x_old[2] = { 0.0, 0.0 };
     static float xf_old[2] = { 0.0, 0.0 };
 
-    float a = 2.0 * M_PI * pstate->config->freq_filt;
-    //float p = 2.0 / dT_PD; // FIXME
+    double dT_PD = pstate->config->controller_freq;
 
-    /*
-    //FIXME 
-    float A = pow(a / (a + p), 2.0);
-    float B = 2.0 * A;
-    float C = A;
-    float D = -2.0 * (a - p) / (a + p);
-    float E = -1.0 * pow(((a - p) / (a + p)), 2.0);
-    //FIXME
-    */
+    double a = 2.0 * M_PI * pstate->config->freq_filt;
+    double p = 2.0 / dT_PD;
 
-    static float itr = 1;
+    double A = pow(a / (a + p), 2.0);
+    double B = 2.0 * A;
+    double C = A;
+    double D = -2.0 * (a - p) / (a + p);
+    double E = -1.0 * pow(((a - p) / (a + p)), 2.0);
+
+    static int itr = 1;
 
     double xf;
     double x = pstate->x;
 
-    //xf = (A * x) + B * x_old[0] + C * x_old[1] + D * xf_old[0] + E * xf_old[1]; // FIXME
+    xf = (A * x) + B * x_old[0] + C * x_old[1] + D * xf_old[0] + E * xf_old[1];
 
     //	printf("filt: A B C D are: %f, %f,  %f, %f\n", A, B, C, D);
 
-    if (itr < 2.5) {
+    if (itr < 2) {
         xf = x;
         ++itr;
     }
 
-    /*
-    // FIXME
     xf_old[1] = xf_old[0];
     xf_old[0] = xf;
 
     x_old[1] = x_old[0];
     x_old[0] = x;
-    //FIXME
-    */
+
     //	printf("filt: Filtering done and xf = %f\n", xf);
     return xf;
 }
@@ -147,7 +143,7 @@ void discrete_intg(const struct state_* pstate)
 }
 
 //==============================================================================
-// FIXME added error messages
+// TODO add error messages
 void PWM_init()
 {
     // setting PWM_PIN as pwm from channel 0 in markspace mode with range = RANGE
