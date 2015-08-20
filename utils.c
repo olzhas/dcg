@@ -11,7 +11,7 @@
 //==============================================================================
 double calculate_current_ref(const struct state_* pstate)
 {
-    printf("x_desired = %f, x_filtered = %f\n", pstate->x_desired, pstate->x_filtered);
+    //printf("x_desired = %f, x_filtered = %f\n", pstate->x_desired, pstate->x_filtered);
 
     double current_ref;
     double kp = pstate->config->kp;

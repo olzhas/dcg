@@ -61,9 +61,10 @@ float ENCODER_read()
     encoder_array |= bcm2835_gpio_lev(D5) << 29;
     encoder_array |= bcm2835_gpio_lev(D6) << 30;
     encoder_array |= bcm2835_gpio_lev(D7) << 31;
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
+
+    // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
+    //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
+    //     bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
 
     // reading 3rd Byte (16-23)
 
@@ -79,9 +80,9 @@ float ENCODER_read()
     encoder_array |= bcm2835_gpio_lev(D6) << 22;
     encoder_array |= bcm2835_gpio_lev(D7) << 23;
 
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
+    // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
+    //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
+    //     bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
 
     // reading 2nd byte (8-15)
 
@@ -97,9 +98,9 @@ float ENCODER_read()
     encoder_array |= bcm2835_gpio_lev(D6) << 14;
     encoder_array |= bcm2835_gpio_lev(D7) << 15;
 
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
+    // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
+    //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
+    //     bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
 
     // reading LSB (0-7)
 
@@ -115,19 +116,20 @@ float ENCODER_read()
     encoder_array |= bcm2835_gpio_lev(D6) << 6;
     encoder_array |= bcm2835_gpio_lev(D7) << 7;
 
-    printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
-        bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
-        bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
+    // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
+    //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
+    //     bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
+    //
+    // printf("\n");
 
-    printf("\n");
     // reset OE value
     bcm2835_gpio_write(OE_COUNT, HIGH);
 
     // convert data to decimal
 
     int count = encoder_array;
-    printf("UNION: dec %d - hex 0x%x, sizeof %d\n", count, count,
-        sizeof(encoder_array));
+    // printf("UNION: dec %d - hex 0x%x, sizeof %d\n", count, count,
+    // sizeof(encoder_array));
 
     float rotation = (float)count / 4096.0;
     //	printf("Decimal value of x = %d \n",count);

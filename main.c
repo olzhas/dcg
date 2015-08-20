@@ -16,6 +16,8 @@
 #include "tasks.h"
 #include "utils.h"
 
+#define NUM_THREAD 1
+
 int main(int argc, char* argv[])
 {
     if (argc < 3) {
@@ -59,40 +61,47 @@ int main(int argc, char* argv[])
 
     bzero(&disp, sizeof(disp));
     disp.sa_handler = SIG_IGN;
-    for (i = 0; i < 1; i++) {
+    for (i = 0; i < NUM_THREAD; i++) {
         if (sigaction(SIGRTMIN + i, &disp, NULL) < 0) {
             syslog(LOG_CRIT, "sigaction_main: %m"); // TODO another methor for logging info
-            _exit(EXIT_FAILURE);
+            _exit(EXIT_FAILURE); // exit(EXIT_FAILURE) // ?
         }
     }
 
-    pthread_t thread[2];
-    sigset_t set[2];
+    pthread_t thread[NUM_THREAD];
+    sigset_t set[NUM_THREAD];
     int s;
 
     /* Block SIGQUIT and SIGUSR1; other threads created by main()
        will inherit a copy of the signal mask. */
 
-    struct sched_param sch_param[2];
-    int policy[2] = { 0, 0 };
-    void* task_func[] = {
-        control_thread, magnet_thread, calculate_energy
+    struct thread_info_ thread_info[NUM_THREAD];
+    struct sched_param sch_param[NUM_THREAD];
+    int policy[NUM_THREAD] = { 0 };
+    void* task_func[NUM_THREAD] = {
+        control_thread //, magnet_thread, calculate_energy
     };
 
+    /* telling what signals must be sent to threads */
     sigset_t mask_set;
     sigemptyset(&mask_set);
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < NUM_THREAD; i++) {
         sigaddset(&mask_set, SIGRTMIN + i);
     }
     s = pthread_sigmask(SIG_BLOCK, &mask_set, NULL);
     if (s != 0)
         handle_error_en(s, "pthread_sigmask");
 
-    for (i = 0; i < 2; i++) {
+    /* starting threads */
+    for (i = 0; i < NUM_THREAD; i++) {
+
         sigemptyset(&set[i]);
         sigaddset(&set[i], SIGRTMIN + i);
 
-        s = pthread_create(&thread[i], NULL, task_func[i], (void*)(&set[i]));
+        thread_info[i].pstate = &state;
+        thread_info[i].pset = &set[i];
+
+        s = pthread_create(&thread[i], NULL, task_func[i], (void*)(&thread_info[i]));
 
         if (s != 0)
             handle_error_en(s, "pthread_create");
@@ -109,21 +118,25 @@ int main(int argc, char* argv[])
             handle_error_en(s, "pthread_setschedparam");
     }
 
+    printf("Please press Enter to proceed\n");
     getchar();
 
+    /* Setting up timers */
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
 
-    struct sigevent sev[2] = { 0 };
-    struct itimerspec its[2];
-    timer_t timerid[2];
+    struct sigevent sev[NUM_THREAD] = { 0 };
+    struct itimerspec its[NUM_THREAD];
+    timer_t timerid[NUM_THREAD];
 
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < NUM_THREAD; i++) {
         sev[i].sigev_notify = SIGEV_SIGNAL;
         sev[i].sigev_signo = SIGRTMIN + i;
 
         if (timer_create(CLOCK_REALTIME, &sev[i], &timerid[i]) == -1)
             handle_error_en(-1, "timer_create");
+
+        /* each of timers starts __at the same moment__ */
 
         its[i].it_value.tv_sec = now.tv_sec + (now.tv_nsec + START_TIMER_DELAY) / 1000000000;
         its[i].it_value.tv_nsec = (now.tv_nsec + START_TIMER_DELAY) % 1000000000; // start in 100ms
@@ -135,25 +148,23 @@ int main(int argc, char* argv[])
         if (timer_settime(timerid[i], TIMER_ABSTIME, &its[i], NULL) == -1)
             handle_error_en(-1, "timer_settime");
     }
-    /* Main thread carries on to create other threads and/or do
-       other work */
-    /*
-    //FIXME integrate old part
-    bcm2835_delay(300);
+
     // delay to make sure that all threads are initialised
     // and iC-MU is conofigured
-    printf("\nPress enter to start the motor.");
-    getchar();
-    bcm2835_gpio_write(MOTOR_D3, HIGH);
+    bcm2835_delay(100); // TODO find the exact time
 
+    bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
+
+    // printf("\nPress enter to start the motor.");
+    // getchar();
 
     printf("\nPress enter to stop the motor.\n");
     getchar();
     bcm2835_gpio_write(MOTOR_D3, LOW);
 
-    bcm2835_spi_end();
+    // TODO catch CTRL-C and close spi and i2c in a correct way
+    bcm2835_spi_end(); // TODO put inside of the thread where it is used
     bcm2835_close();
-    */
     return EXIT_SUCCESS;
 }

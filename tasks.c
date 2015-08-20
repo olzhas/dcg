@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <signal.h>
 #include <time.h>
+#include <unistd.h>
+#include <errno.h>
 #include <bcm2835.h>
 
 #include "declare.h"
@@ -13,30 +16,68 @@
 //==============================================================================
 void control_thread(void* data)
 {
-    struct state_* pstate = (struct state_*)data;
+    // struct sigaction disp;
+    //
+    // bzero(&disp, sizeof(disp));
+    // disp.sa_handler = SIG_IGN;
+    //
+    // if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
+    //     syslog(LOG_CRIT, "sigaction_main: %m");
+    //     _exit(1);
+    // }
+
+    /* signal handling routines */
+    struct thread_info_* thread_info = (struct thread_info_*)data;
+    sigset_t* set = thread_info->pset;
+    int s;
+    siginfo_t sig;
+
+    struct timespec timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_nsec = 1000;
+
+    struct state_* pstate = thread_info->pstate;
+
     // TODO move somewhere else
     ENCODER_init();
 
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
-    printf("Encoder Thread started.\n");
+    //
+
+    printf("control thread started\n");
 
     for (;;) {
-        // TODO sigwait
-        // code for obtaining value from encoder IC
-        pstate->x = ENCODER_read(); // no. of rotations
+        s = sigtimedwait(set, &sig, &timeout); // locks execution
+        if (s >= 0) {
+            if (s != SIGRTMIN)
+                write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
 
-        // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
+            // code for obtaining value from encoder IC
+            pstate->x = ENCODER_read(); // no. of rotations
 
-        pstate->x_desired = discrete_diff(pstate);
-        pstate->x_filtered = low_pass_filter(pstate);
-        pstate->current_ref = calculate_current_ref(pstate);
+            // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-        // maxon controller requires PWM value to be 10% and 90%
-        // so, current_ref should be scaled beetween 103 and 921 (10% and 90% of 1024)
+            pstate->x_desired = discrete_diff(pstate);
+            pstate->x_filtered = low_pass_filter(pstate);
+            pstate->current_ref = calculate_current_ref(pstate);
 
-        uint32_t pwm_value = 204 * pstate->current_ref + 512.0;
-        printf("PWM command: %d\n", pwm_value);
-        bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+            // maxon controller requires PWM value to be 10% and 90%
+            // so, current_ref should be scaled beetween 103 and 921 (10% and 90% of 1024)
+
+            uint32_t pwm_value = 204 * pstate->current_ref + 512.0;
+            //printf("PWM command: %d\n", pwm_value);
+            bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+        }
+        else {
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                break;
+            default:
+                handle_error_en(s, "sigwait");
+                break;
+            }
+        }
     }
 }
 

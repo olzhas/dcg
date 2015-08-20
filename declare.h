@@ -2,6 +2,7 @@
 #define DECLARE_H_
 
 #include <stdint.h>
+#include <signal.h>
 
 // define various pins for testing
 
@@ -56,4 +57,8 @@ struct state_ {
     struct config_* config;
 };
 
+struct thread_info_ {
+    struct state_* pstate;
+    sigset_t* pset;
+};
 #endif // DECLARE_H_
