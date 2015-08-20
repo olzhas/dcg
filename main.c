@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     struct sched_param sch_param[2];
     int policy[2] = { 0, 0 };
     void* task_func[] = {
-        magnet_thread, encoder_thread, calculate_energy, calculate_I_ref
+        magnet_thread, encoder_thread, calculate_energy
     };
 
     sigset_t mask_set;
@@ -136,7 +136,8 @@ int main(int argc, char* argv[])
     }
     /* Main thread carries on to create other threads and/or do
        other work */
-
+    /*
+    //FIXME integrate old part
     bcm2835_delay(300);
     // delay to make sure that all threads are initialised
     // and iC-MU is conofigured
@@ -144,7 +145,6 @@ int main(int argc, char* argv[])
     getchar();
     bcm2835_gpio_write(MOTOR_D3, HIGH);
 
-    start = 1;
     printf("Started.\n");
 
     printf("\nPress enter to stop the motor.\n");
@@ -153,6 +153,6 @@ int main(int argc, char* argv[])
 
     bcm2835_spi_end();
     bcm2835_close();
-
+    */
     return EXIT_SUCCESS;
 }

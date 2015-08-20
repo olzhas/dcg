@@ -1,6 +1,8 @@
 #include "encoder.h"
 
+#include <stdio.h>
 #include <bcm2835.h>
+
 #include "declare.h"
 
 int ENCODER_init()

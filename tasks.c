@@ -11,8 +11,9 @@
 #include "utils.h"
 
 //==============================================================================
-void encoder_thread()
+void encoder_thread(void* data)
 {
+    struct state_* pstate = (struct state_*)data;
     ENCODER_init();
 
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
@@ -20,23 +21,29 @@ void encoder_thread()
 
     for (;;) {
         // code for obtaining value from encoder IC
-        state->x = ENCODER_read(); // no. of rotations
+        pstate->x = ENCODER_read(); // no. of rotations
 
         // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-        state->xd = discrete_diff(state); // updating value of dx by calling practical
-        // differentiator
-        state->x_filtered = low_pass_filter(state); // update xf, the filtered value of x
+        pstate->x_desired = discrete_diff(pstate);
+        pstate->x_filtered = low_pass_filter(pstate);
+        pstate->current_ref = calculate_current_ref(pstate);
 
-        state->current_ref = calculate_current_ref(state);
+        // maxon controller requires PWM value to be 10% and 90%
+        // so, current_ref should be scaled beetween 103 and 921 (10% and 90% of 1024)
+
+        uint32_t pwm_value = 204 * pstate->current_ref + 512.0;
+        printf("PWM command: %d\n", pwm_value);
+        bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
     }
 }
 
 //==============================================================================
-void calculate_energy()
+void calculate_energy(void* data)
 {
+    struct state_* pstate = (struct state_*)data;
+
     uint8_t send;
-    uint8_t data;
 
     char volt[2] = { 0x00, 0x00 };
     char curr[2] = { 0x00, 0x01 };
@@ -69,9 +76,6 @@ void calculate_energy()
     if (fp == NULL) {
         fprintf(stderr, "Cannot open current_file.txt for writing\n");
         exit(EXIT_FAILURE);
-    }
-
-    while (start == 0) { // TODO introduce mutexes
     }
 
     float su2 = 0.0;
@@ -108,9 +112,9 @@ void calculate_energy()
         // power LSB = 20 * current LSB = 20 mW. Therefore, power = power read x
         // 20 (mW)
         int pow_16 = (pwr[0] << 8) | (pwr[1]);
-        power = ((float)pow_16 * 20.0) / 1000.0; // (in W)
+        pstate->power = ((float)pow_16 * 20.0) / 1000.0; // (in W)
         if (current < 0)
-            power = power * -1.0;
+            pstate->power *= -1.0;
 
         //			discrete_intg();  // update value of energy
 
@@ -136,8 +140,9 @@ void calculate_energy()
         NULL);
 
 //==============================================================================
-void magnet_thread()
+void magnet_thread(void* data)
 {
+    struct state_* pstate = (struct state_*)data;
     printf("Magnet thread started.\n");
 
     bcm2835_spi_begin();
@@ -187,9 +192,8 @@ void magnet_thread()
                 return;
             }
             //#endif
-            //			xd = pow(sin(mag_reading),-0.5);
 
-            xd = mag_position / 2.0;
+            pstate->x_desired = mag_position / 2.0;
         }
         else {
             printf("DATA NOT VALID or too early\n");

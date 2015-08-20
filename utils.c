@@ -9,86 +9,100 @@
 #include "declare.h"
 
 //==============================================================================
-void calculate_current_ref()
+double calculate_current_ref(const struct state_* pstate)
 {
-    printf("x_desired = %f, x_filtered = %f\n", xd, xf);
+    printf("x_desired = %f, x_filtered = %f\n", pstate->x_desired, pstate->x_filtered);
+
+    double current_ref;
+    double kp = pstate->config->kp;
+    double kd = pstate->config->kd;
+    double xd = pstate->x_desired;
+    double xf = pstate->x_filtered;
+    double dx = pstate->dx;
 
     // calculate I_ref and convert to pwm value
-    I_ref = (float)((kp) * (xd - xf)) - (kd) * (dx);
+    current_ref = (double)((kp) * (xd - xf)) - (kd) * (dx);
     // I_range = 2;     // for range -2 to +2, set during motor
     // controller setup
 
-    if (I_ref > I_range)
-        I_ref = I_range;
-    if (I_ref < (-1.0 * I_range))
-        I_ref = (-1.0 * I_range);
-
-    // maxon controller requires PWM value to be 10% and 90%
-    // so, I_ref should be scaцled beetween 103 and 921 (10% and 90% of 1024)
-
-    uint32_t pwm_value = (204.0 * I_ref) + 512.0;
-    printf("PWM command: %d\n", pwm_value);
-
-    bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+    double current_range = pstate->config->current_range;
+    if (current_ref > current_range) {
+        current_ref = current_range;
+    }
+    else if (current_ref < -current_range) {
+        current_ref = -current_range;
+    }
 
     // printf("i_ref: X, Xf and Xd = %f,  %f,  %f\n", x, xf, xd);
+    return current_ref;
 }
 
 //==============================================================================
-double discrete_diff(struct* state_ state)
+double discrete_diff(const struct state_* pstate)
 {
     static double x_old[2] = { 0.0, 0.0 };
     static double dx_old[2] = { 0.0, 0.0 };
-    long double tau = 1.0 / (2.0 * 3.14159 * freq_diff);
 
-    double temp1 = (2.0 * tau + dT_PD);
-    double temp2 = (2.0 * tau - dT_PD);
+    double freq_diff = pstate->config->freq_diff;
+    long double tau = 1.0 / (2.0 * M_PI * freq_diff);
+
+    //double temp1 = (2.0 * tau + dT_PD); //FIXME
+    //double temp2 = (2.0 * tau - dT_PD); //FIXME
 
     // printf("filt: temps = %.10f,  %.10f\n",temp1, temp2);
 
-    float A = 2.0 * (dT_PD / (temp1 * temp1));
-    float B = -1.0 * A;
-    float C = 2.0 * (temp2 / temp1);
-    float D = -1.0 * (temp2 / temp1) * (temp2 / temp1);
-    static float itr = 1;
+    //float A = 2.0 * (dT_PD / (temp1 * temp1)); // FIXME
+    //float B = -1.0 * A; //FIXME
+    //float C = 2.0 * (temp2 / temp1); //FIXME
+    //float D = -1.0 * (temp2 / temp1) * (temp2 / temp1);//FIXME
+    static int itr = 1;
 
-    dx = A * x + B * x_old[1] + C * dx_old[0] + D * dx_old[1];
+    double dx;
+    //dx = A * x + B * x_old[1] + C * dx_old[0] + D * dx_old[1]; // FIXME
 
-    //	printf("A B C D are: %f,  %f,  %f,  %f\n", A, B, C, D);
-    // printf("dT, tau are: %f,  %.10f\n", dT, tau);
+    //printf("A B C D are: %f,  %f,  %f,  %f\n", A, B, C, D);
+    //printf("dT, tau are: %f,  %.10f\n", dT, tau);
 
-    if (itr < 2.5) {
-        dx = (x - x_old[0]) / dT_PD;
+    if (itr < 3) {
+        //dx = (x - x_old[0]) / dT_PD; //FIXME
         ++itr;
     }
 
     dx_old[1] = dx_old[0];
-    dx_old[0] = dx;
+    dx_old[0] = pstate->dx;
 
     x_old[1] = x_old[0];
-    x_old[0] = x;
+    x_old[0] = pstate->x;
 
     //	printf("Diff. Done. and dx = %f\n", derivative);
 }
 
 //==============================================================================
-void low_pass_filter()
+double low_pass_filter(const struct state_* pstate)
 {
+
     static float x_old[2] = { 0.0, 0.0 };
     static float xf_old[2] = { 0.0, 0.0 };
 
-    float a = 2.0 * 3.14159 * freq_filt;
-    float p = 2.0 / dT_PD;
+    float a = 2.0 * M_PI * pstate->config->freq_filt;
+    //float p = 2.0 / dT_PD; // FIXME
 
+    /*
+    //FIXME 
     float A = pow(a / (a + p), 2.0);
     float B = 2.0 * A;
     float C = A;
     float D = -2.0 * (a - p) / (a + p);
     float E = -1.0 * pow(((a - p) / (a + p)), 2.0);
+    //FIXME
+    */
 
     static float itr = 1;
 
-    xf = (A * x) + B * x_old[0] + C * x_old[1] + D * xf_old[0] + E * xf_old[1];
+    double xf;
+    double x = pstate->x;
+
+    //xf = (A * x) + B * x_old[0] + C * x_old[1] + D * xf_old[0] + E * xf_old[1]; // FIXME
 
     //	printf("filt: A B C D are: %f, %f,  %f, %f\n", A, B, C, D);
 
@@ -97,35 +111,39 @@ void low_pass_filter()
         ++itr;
     }
 
+    /*
+    // FIXME
     xf_old[1] = xf_old[0];
     xf_old[0] = xf;
 
     x_old[1] = x_old[0];
     x_old[0] = x;
-
+    //FIXME
+    */
     //	printf("filt: Filtering done and xf = %f\n", xf);
+    return xf;
 }
 
 //==============================================================================
-void discrete_intg()
+void discrete_intg(const struct state_* pstate)
 {
     static float pow_old;
     static float E_old;
 
-    float A = dT_PO / 2.0;
+    //float A = dT_PO / 2.0; // FIXME n
     static float itr = 1.0;
 
-    energy = E_old + A * (power + pow_old); // z transform used to find equation
+    //pstate->energy = E_old + A * (pstate->power + pow_old); // z transform used to find equation // FIXME
     //	printf("intg: A and power, energy = %f, %f, %f\n", A, power, energy);
 
     if (itr < 1.5) {
-        energy = (power * dT_PO) / 2.0;
+        //pstate->energy = (pstate->power * dT_PO) / 2.0; //FIXME
         ++itr;
     }
 
-    E_old = energy;
+    E_old = pstate->energy;
 
-    pow_old = power;
+    pow_old = pstate->power;
 }
 
 //==============================================================================

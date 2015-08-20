@@ -34,15 +34,15 @@
 
 #define START_TIMER_DELAY 200000000 // 200e6 = 200ms
 
-struct {
+struct config_ {
     double freq_diff; // differentiator cut-off frequency
     double freq_filt;
     double kp; // kp for PD loop
     double kd; // kd for PD loop
     double current_range; // for calculating PWM value
-} config_;
+};
 
-struct {
+struct state_ {
     double x; // position
     double x_filtered; // filtered value of position
     double x_desired; // desired value of position
@@ -50,7 +50,7 @@ struct {
     double current_ref; // reference current (control action)
     double power; // instantaneous power measured by IC
     double energy;
-    struct* config_ config;
-} state_;
+    struct config_* config;
+};
 
 #endif // DECLARE_H_

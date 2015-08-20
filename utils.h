@@ -1,10 +1,15 @@
 #ifndef UTILS_H_
 #define UTILS_H_
+#include "declare.h"
 
-void calculate_I_ref();
-void discrete_diff();
-void low_pass_filter();
-void discrete_intg();
+// calculation routines
+double calculate_current_ref(const struct state_* pstate);
+double discrete_diff(const struct state_* pstate);
+double low_pass_filter(const struct state_* pstate);
+double discrete_integ(const struct state_* pstate);
+
+// hardware routines
+void PWM_init();
 
 #define handle_error_en(en, msg) \
     do {                         \
