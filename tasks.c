@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <bcm2835.h>
+#include <strings.h>
+#include <syslog.h>
 
 #include "declare.h"
 #include "encoder.h"
@@ -16,15 +18,16 @@
 //==============================================================================
 void control_thread(void* data)
 {
-    // struct sigaction disp;
-    //
-    // bzero(&disp, sizeof(disp));
-    // disp.sa_handler = SIG_IGN;
-    //
-    // if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
-    //     syslog(LOG_CRIT, "sigaction_main: %m");
-    //     _exit(1);
-    // }
+    /* TODO encapsulate this */
+    struct sigaction disp;
+
+    bzero(&disp, sizeof(disp));
+    disp.sa_handler = SIG_IGN;
+
+    if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
+        syslog(LOG_CRIT, "sigaction_main: %m");
+        _exit(1);
+    }
 
     /* signal handling routines */
     struct thread_info_* thread_info = (struct thread_info_*)data;
@@ -37,6 +40,7 @@ void control_thread(void* data)
     timeout.tv_nsec = 1000;
 
     struct state_* pstate = thread_info->pstate;
+    /*==========================*/
 
     // TODO move somewhere else
     ENCODER_init();
@@ -49,8 +53,10 @@ void control_thread(void* data)
     for (;;) {
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
-            if (s != SIGRTMIN)
+            if (s != SIGRTMIN) {
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
+                continue;
+            }
 
             // code for obtaining value from encoder IC
             pstate->x = ENCODER_read(); // no. of rotations
@@ -186,8 +192,30 @@ void calculate_energy(void* data)
 //==============================================================================
 void magnet_thread(void* data)
 {
-    struct state_* pstate = (struct state_*)data;
-    printf("Magnet thread started.\n");
+
+    /* TODO encapsulate this */
+    struct sigaction disp;
+
+    bzero(&disp, sizeof(disp));
+    disp.sa_handler = SIG_IGN;
+
+    if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
+        syslog(LOG_CRIT, "sigaction_main: %m");
+        _exit(1);
+    }
+
+    /* signal handling routines */
+    struct thread_info_* thread_info = (struct thread_info_*)data;
+    sigset_t* set = thread_info->pset;
+    int s;
+    siginfo_t sig;
+
+    struct timespec timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_nsec = 1000;
+
+    struct state_* pstate = thread_info->pstate;
+    /*==========================*/
 
     bcm2835_spi_begin();
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST); // The default
@@ -196,54 +224,76 @@ void magnet_thread(void* data)
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
 
+    printf("Magnet thread started.\n");
+
     for (;;) {
-        // TODO sigwait
-        // code for obtaining value from iC-MU
-        char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
-        //  rest depends on the opcode
-        char mag_in[2] = { 0 };
 
-        bcm2835_gpio_write(PA0, LOW);
-        bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
-        NSEC_DELAY(SPI_DELAY); //
-        bcm2835_gpio_write(PA0, HIGH);
+        s = sigtimedwait(set, &sig, &timeout); // locks execution
+        if (s >= 0) {
+            if (s != SIGRTMIN + 1) { // TODO make it automatic
+                write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
+                continue;
+            }
 
-        if (mag_in[1] == 0x80) {
-            char status[] = { 0xA6 };
-            char status_in[3] = { 0 };
+            // TODO sigwait
+            // code for obtaining value from iC-MU
+            char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
+            //  rest depends on the opcode
+            char mag_in[2] = { 0 };
 
             bcm2835_gpio_write(PA0, LOW);
-            bcm2835_spi_transfernb(status, status_in, sizeof(status_in));
-            NSEC_DELAY(SPI_DELAY);
+            bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
+            NSEC_DELAY(SPI_DELAY); //
             bcm2835_gpio_write(PA0, HIGH);
 
-            float mag_reading = (256.0 * status_in[1]) + status_in[2];
+            if (mag_in[1] == 0x80) {
+                char status[] = { 0xA6 };
+                char status_in[3] = { 0 };
 
-            // code for calculating xd
+                bcm2835_gpio_write(PA0, LOW);
+                bcm2835_spi_transfernb(status, status_in, sizeof(status_in));
+                NSEC_DELAY(SPI_DELAY);
+                bcm2835_gpio_write(PA0, HIGH);
 
-            float mag_position = (360.0 * mag_reading) / 65536.0;
-            //#ifdef DEBUG
-            //   printf("mag: Reading: %f,	angle: %f,	read: %X, %X\n",
-            //   mag_reading,
-            //          mag_position, status_in[1], status_in[2]);
-            //   fflush(stdout);
+                float mag_reading = (256.0 * status_in[1]) + status_in[2];
 
-            if ((status_in[1] == status_in[2]) && status_in[1] == 0) {
-                printf("%x %x %x\n", status_in[0], status_in[1], status_in[2]);
-                printf(
-                    "##############################################################\n"
-                    "##############################################################\n"
-                    "##############################################################\n");
-                return;
+                // code for calculating xd
+
+                float mag_position = (360.0 * mag_reading) / 65536.0;
+                //#ifdef DEBUG
+                //   printf("mag: Reading: %f,	angle: %f,	read: %X, %X\n",
+                //   mag_reading,
+                //          mag_position, status_in[1], status_in[2]);
+                //   fflush(stdout);
+
+                if ((status_in[1] == status_in[2]) && status_in[1] == 0) {
+                    printf("%x %x %x\n", status_in[0], status_in[1], status_in[2]);
+                    printf(
+                        "##############################################################\n"
+                        "##############################################################\n"
+                        "##############################################################\n");
+                    return;
+                }
+                //#endif
+
+                //pstate->x_desired = mag_position / 2.0;
             }
-            //#endif
-
-            //pstate->x_desired = mag_position / 2.0;
+            else {
+                printf("DATA NOT VALID or too early\n");
+                printf("%x %x\n\n", mag_in[0], mag_in[1]);
+            }
         }
         else {
-            printf("DATA NOT VALID or too early\n");
-            printf("%x %x\n\n", mag_in[0], mag_in[1]);
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                break;
+            default:
+                handle_error_en(s, "sigwait");
+                break;
+            }
         }
+
         //			xd = 100.0;
         // bcm2835_gpio_write(MAG_PIN, LOW);
     }
