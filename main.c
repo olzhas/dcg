@@ -20,7 +20,7 @@
 
 int main(int argc, char* argv[])
 {
-    if (argc < 3) {
+    if (argc < 4) {
         fprintf(stderr, "\nInsufficient command line arguments, try again\n");
         fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
         return EXIT_FAILURE;
@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
     /* store information about the state */
     struct state_ state;
     state.config = &config;
+    state.x_desired = strtod(argv[3], NULL);
 
     /* init the library */
     if (bcm2835_init() == 0)

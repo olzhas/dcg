@@ -57,7 +57,7 @@ void control_thread(void* data)
 
             // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-            pstate->x_desired = discrete_diff(pstate);
+            pstate->dx = discrete_diff(pstate);
             pstate->x_filtered = low_pass_filter(pstate);
             pstate->current_ref = calculate_current_ref(pstate);
 
@@ -238,7 +238,7 @@ void magnet_thread(void* data)
             }
             //#endif
 
-            pstate->x_desired = mag_position / 2.0;
+            //pstate->x_desired = mag_position / 2.0;
         }
         else {
             printf("DATA NOT VALID or too early\n");

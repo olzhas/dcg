@@ -11,7 +11,11 @@
 //==============================================================================
 double calculate_current_ref(const struct state_* pstate)
 {
-    //printf("x_desired = %f, x_filtered = %f\n", pstate->x_desired, pstate->x_filtered);
+
+#ifdef DEBUG //TODO come up with better logging technique
+    printf("x_desired = %f, x_filtered = %f, dx = %f\n",
+        pstate->x_desired, pstate->x_filtered, pstate->dx);
+#endif
 
     double current_ref;
     double kp = pstate->config->kp;
@@ -22,8 +26,10 @@ double calculate_current_ref(const struct state_* pstate)
 
     // calculate I_ref and convert to pwm value
     current_ref = (double)((kp) * (xd - xf)) - (kd) * (dx);
-    // controller setup
 
+#ifdef DEBUG
+    printf("%lf\n", current_ref);
+#endif
     // limitting current
     double current_range = pstate->config->current_range;
     if (current_ref > current_range) {
@@ -33,7 +39,9 @@ double calculate_current_ref(const struct state_* pstate)
         current_ref = -current_range;
     }
 
-    // printf("i_ref: X, Xf and Xd = %f,  %f,  %f\n", x, xf, xd);
+#ifdef DEBUG
+    printf("%lf\n", current_ref);
+#endif
     return current_ref;
 }
 
@@ -44,7 +52,8 @@ double discrete_diff(const struct state_* pstate)
     static double dx_old[2] = { 0.0, 0.0 };
 
     double freq_diff = pstate->config->freq_diff;
-    double dT_PD = pstate->config->controller_freq;
+    double dT_PD = (double)pstate->config->controller_freq / 1e9;
+
     long double tau = 1.0 / (2.0 * M_PI * freq_diff);
 
     double temp1 = (2.0 * tau + dT_PD);
@@ -65,7 +74,7 @@ double discrete_diff(const struct state_* pstate)
     //printf("A B C D are: %f,  %f,  %f,  %f\n", A, B, C, D);
     //printf("dT, tau are: %f,  %.10f\n", dT, tau);
 
-    if (itr < 3) {
+    if (itr < 2) {
         dx = (x - x_old[0]) / dT_PD;
         ++itr;
     }
@@ -85,7 +94,7 @@ double low_pass_filter(const struct state_* pstate)
     static float x_old[2] = { 0.0, 0.0 };
     static float xf_old[2] = { 0.0, 0.0 };
 
-    double dT_PD = pstate->config->controller_freq;
+    double dT_PD = pstate->config->controller_freq / 1e9;
 
     double a = 2.0 * M_PI * pstate->config->freq_filt;
     double p = 2.0 / dT_PD;
