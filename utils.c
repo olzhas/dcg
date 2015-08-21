@@ -11,7 +11,7 @@
 //==============================================================================
 double calculate_current_ref(const struct state_* pstate)
 {
-
+//#define DEBUG
 #ifdef DEBUG //TODO come up with better logging technique
     printf("x_desired = %f, x_filtered = %f, dx = %f\n",
         pstate->x_desired, pstate->x_filtered, pstate->dx);

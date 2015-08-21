@@ -199,7 +199,7 @@ void magnet_thread(void* data)
     bzero(&disp, sizeof(disp));
     disp.sa_handler = SIG_IGN;
 
-    if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
+    if (sigaction(SIGRTMIN, &disp, NULL) < 0) {
         syslog(LOG_CRIT, "sigaction_main: %m");
         _exit(1);
     }
@@ -220,9 +220,12 @@ void magnet_thread(void* data)
     bcm2835_spi_begin();
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST); // The default
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0); // The default
-    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_128); // The default
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
-    bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
+    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_64); // The default
+    //bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
+    //bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
+
+    bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT); // ATTENTION: If there's a problem in reading encoder data (the D6 and/or D5 Pins), this is the issue. Can be solved by changing the library.
+    bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
 
     printf("Magnet thread started.\n");
 
@@ -235,7 +238,6 @@ void magnet_thread(void* data)
                 continue;
             }
 
-            // TODO sigwait
             // code for obtaining value from iC-MU
             char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
             //  rest depends on the opcode
@@ -261,11 +263,11 @@ void magnet_thread(void* data)
 
                 float mag_position = (360.0 * mag_reading) / 65536.0;
                 //#ifdef DEBUG
-                //   printf("mag: Reading: %f,	angle: %f,	read: %X, %X\n",
-                //   mag_reading,
-                //          mag_position, status_in[1], status_in[2]);
-                //   fflush(stdout);
-
+                printf("mag: Reading: %f,	angle: %f,	read: %X, %X\n",
+                    mag_reading,
+                    mag_position, status_in[1], status_in[2]);
+                fflush(stdout);
+                /*
                 if ((status_in[1] == status_in[2]) && status_in[1] == 0) {
                     printf("%x %x %x\n", status_in[0], status_in[1], status_in[2]);
                     printf(
@@ -274,6 +276,7 @@ void magnet_thread(void* data)
                         "##############################################################\n");
                     return;
                 }
+                */
                 //#endif
 
                 //pstate->x_desired = mag_position / 2.0;
