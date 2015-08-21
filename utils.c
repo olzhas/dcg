@@ -132,6 +132,8 @@ double low_pass_filter(const struct state_* pstate)
 //==============================================================================
 void discrete_intg(const struct state_* pstate)
 {
+    /*
+    //TODO verify the implementation
     static float pow_old;
     static float E_old;
 
@@ -149,6 +151,7 @@ void discrete_intg(const struct state_* pstate)
     E_old = pstate->energy;
 
     pow_old = pstate->power;
+    */
 }
 
 //==============================================================================

@@ -18,6 +18,8 @@
 
 #define NUM_THREAD 1
 
+//TODO catch CTRL-C signal and handle it
+
 int main(int argc, char* argv[])
 {
     if (argc < 4) {
