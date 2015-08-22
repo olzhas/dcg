@@ -5,6 +5,8 @@
 
 #include "declare.h"
 
+extern pthread_mutex_t mtx_read;
+
 int ENCODER_init()
 {
     bcm2835_gpio_fsel(ENC_PIN, BCM2835_GPIO_FSEL_OUTP);
@@ -43,6 +45,16 @@ int ENCODER_init()
 //==============================================================================
 float ENCODER_read()
 {
+    // mutex lock
+    pthread_mutex_lock(&mtx_read);
+    bcm2835_gpio_fsel(D0, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D1, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D2, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D3, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D4, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D7, BCM2835_GPIO_FSEL_INPT);
     uint32_t encoder_array = 0;
 
     // setting OE for counter
@@ -125,11 +137,15 @@ float ENCODER_read()
     // reset OE value
     bcm2835_gpio_write(OE_COUNT, HIGH);
 
+    // mutex lock
+    pthread_mutex_unlock(&mtx_read);
+
     // convert data to decimal
+    //    if(encoder_array - )
 
     int count = encoder_array;
-    // printf("UNION: dec %d - hex 0x%x, sizeof %d\n", count, count,
-    // sizeof(encoder_array));
+    //printf("UNION: dec %d - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,
+    //    sizeof(encoder_array));
 
     float rotation = (float)count / 4096.0;
     //	printf("Decimal value of x = %d \n",count);

@@ -16,7 +16,9 @@
 #include "tasks.h"
 #include "utils.h"
 
-#define NUM_THREAD 1
+#define NUM_THREAD 2
+
+pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
 //TODO catch CTRL-C signal and handle it
 
@@ -24,7 +26,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 4) {
         fprintf(stderr, "\nInsufficient command line arguments, try again\n");
-        fprintf(stderr, "\n%s kp kd\n\n", argv[0]);
+        fprintf(stderr, "\n%s kp kd x_desired\n\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -82,7 +84,8 @@ int main(int argc, char* argv[])
     struct sched_param sch_param[NUM_THREAD];
     int policy[NUM_THREAD] = { 0 };
     void* task_func[NUM_THREAD] = {
-        control_thread //, magnet_thread, calculate_energy
+        control_thread,
+        magnet_thread //, calculate_energy
     };
 
     /* telling what signals must be sent to threads */
@@ -154,7 +157,7 @@ int main(int argc, char* argv[])
 
     // delay to make sure that all threads are initialised
     // and iC-MU is conofigured
-    bcm2835_delay(100); // TODO find the exact time
+    //bcm2835_delay(100); // TODO find the exact time
 
     bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
