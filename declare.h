@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <signal.h>
+#include <pthread.h>
 
 // define various pins for testing
 
@@ -35,7 +36,7 @@
 #define MOTOR_D3 RPI_BPLUS_GPIO_J8_08
 #define RST_COUNT RPI_BPLUS_GPIO_J8_11
 
-#define START_TIMER_DELAY 200000000 // 200e6 = 200ms
+#define START_TIMER_DELAY 10000000 // 10e6 = 10ms
 
 struct config_ {
     double freq_diff; // differentiator cut-off frequency
@@ -61,4 +62,5 @@ struct thread_info_ {
     struct state_* pstate;
     sigset_t* pset;
 };
+
 #endif // DECLARE_H_

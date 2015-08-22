@@ -18,6 +18,8 @@
 
 #define NUM_THREAD 2
 
+pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
+
 //TODO catch CTRL-C signal and handle it
 
 int main(int argc, char* argv[])
@@ -155,7 +157,7 @@ int main(int argc, char* argv[])
 
     // delay to make sure that all threads are initialised
     // and iC-MU is conofigured
-    bcm2835_delay(100); // TODO find the exact time
+    //bcm2835_delay(100); // TODO find the exact time
 
     bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");

@@ -15,6 +15,8 @@
 #include "encoder.h"
 #include "utils.h"
 
+extern pthread_mutex_t mtx_read;
+
 //==============================================================================
 void control_thread(void* data)
 {
@@ -224,10 +226,11 @@ void magnet_thread(void* data)
     //bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
     //bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
 
-    bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT); // ATTENTION: If there's a problem in reading encoder data (the D6 and/or D5 Pins), this is the issue. Can be solved by changing the library.
-    bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
-
     printf("Magnet thread started.\n");
+
+    NSEC_DELAY(1000);
+
+    printf("Magnet sensor activated.\n");
 
     for (;;) {
 
@@ -241,14 +244,24 @@ void magnet_thread(void* data)
             // code for obtaining value from iC-MU
             char mag_buf[] = { 0xF5 }; //  Data to send: first byte is op code,
             //  rest depends on the opcode
-            char mag_in[2] = { 0 };
+            char mag_in[3] = { 0 };
 
-            bcm2835_gpio_write(PA0, LOW);
-            bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
-            NSEC_DELAY(SPI_DELAY); //
-            bcm2835_gpio_write(PA0, HIGH);
+            // mutex lock
+            pthread_mutex_lock(&mtx_read);
 
-            if (mag_in[1] == 0x80) {
+            int t = 0; // try 10 times
+            while (mag_in[1] != 0x80 && t < 10) {
+                bcm2835_gpio_write(PA0, LOW);
+                bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
+                NSEC_DELAY(500);
+                bcm2835_gpio_write(PA0, HIGH);
+                t++;
+            }
+            if (t > 1)
+                printf("t %d\n ", t);
+
+            if (t < 10) {
+
                 char status[] = { 0xA6 };
                 char status_in[3] = { 0 };
 
@@ -262,23 +275,29 @@ void magnet_thread(void* data)
                 // code for calculating xd
 
                 float mag_position = (360.0 * mag_reading) / 65536.0;
-                //#ifdef DEBUG
-                printf("mag: Reading: %f,	angle: %f,	read: %X, %X\n",
+#define DEBUG
+#ifdef DEBUG
+
+                printf("mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
                     mag_reading,
-                    mag_position, status_in[1], status_in[2]);
-                fflush(stdout);
-                /*
+                    mag_position, status_in[0], status_in[1], status_in[2]);
+                // fflush(stdout);
+
                 if ((status_in[1] == status_in[2]) && status_in[1] == 0) {
                     printf("%x %x %x\n", status_in[0], status_in[1], status_in[2]);
+
                     printf(
                         "##############################################################\n"
                         "##############################################################\n"
                         "##############################################################\n");
-                    return;
-                }
-                */
-                //#endif
 
+                    //exit(EXIT_FAILURE);
+                }
+
+#endif
+                // mutex lock
+
+                pthread_mutex_unlock(&mtx_read);
                 //pstate->x_desired = mag_position / 2.0;
             }
             else {

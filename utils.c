@@ -11,10 +11,10 @@
 //==============================================================================
 double calculate_current_ref(const struct state_* pstate)
 {
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG //TODO come up with better logging technique
-    printf("x_desired = %f, x_filtered = %f, dx = %f\n",
-        pstate->x_desired, pstate->x_filtered, pstate->dx);
+    printf("x_desired = %f, x = %f, x_filtered = %f, dx = %f\n",
+        pstate->x_desired, pstate->x, pstate->x_filtered, pstate->dx);
 #endif
 
     double current_ref;
@@ -27,9 +27,9 @@ double calculate_current_ref(const struct state_* pstate)
     // calculate I_ref and convert to pwm value
     current_ref = (double)((kp) * (xd - xf)) - (kd) * (dx);
 
-#ifdef DEBUG
-    printf("%lf\n", current_ref);
-#endif
+    // #ifdef DEBUG
+    //     printf("%lf\n", current_ref);
+    // #endif
     // limitting current
     double current_range = pstate->config->current_range;
     if (current_ref > current_range) {
@@ -39,9 +39,9 @@ double calculate_current_ref(const struct state_* pstate)
         current_ref = -current_range;
     }
 
-#ifdef DEBUG
-    printf("%lf\n", current_ref);
-#endif
+    // #ifdef DEBUG
+    //     printf("%lf\n", current_ref);
+    // #endif
     return current_ref;
 }
 
