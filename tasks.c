@@ -95,6 +95,8 @@ void control_thread(void* data)
 //==============================================================================
 void calculate_energy(void* data)
 {
+
+    // TODO mutex ?
     int sig_ign_len = 2;
     int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
     /* TODO encapsulate this */
@@ -165,11 +167,10 @@ void calculate_energy(void* data)
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
-            if (s != SIGRTMIN) {
+            if (s != SIGRTMIN + 2) {
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
                 continue;
             }
-            // TODO sigwait
             float t = 0.0;
             bcm2835_i2c_begin(); // I2C begin
             bcm2835_i2c_set_baudrate(100000);

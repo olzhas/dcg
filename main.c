@@ -16,7 +16,7 @@
 #include "tasks.h"
 #include "utils.h"
 
-#define NUM_THREAD 2
+#define NUM_THREAD 3
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
