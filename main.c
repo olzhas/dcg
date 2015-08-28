@@ -16,7 +16,7 @@
 #include "tasks.h"
 #include "utils.h"
 
-#define NUM_THREAD 2
+#define NUM_THREAD 3
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
@@ -85,7 +85,8 @@ int main(int argc, char* argv[])
     int policy[NUM_THREAD] = { 0 };
     void* task_func[NUM_THREAD] = {
         control_thread,
-        magnet_thread //, calculate_energy
+        magnet_thread,
+        energy_thread
     };
 
     /* telling what signals must be sent to threads */
@@ -162,11 +163,15 @@ int main(int argc, char* argv[])
     bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
 
-    // printf("\nPress enter to start the motor.");
-    // getchar();
+    printf("\n Press CTRL-C to stop the motor.\n");
 
-    printf("\nPress enter to stop the motor.\n");
-    getchar();
+    for (;;) {
+        int x = 0;
+        printf("Enter new desired position (x_desired)\n");
+        scanf("%d", &x);
+        state.x_desired = x;
+    }
+
     bcm2835_gpio_write(MOTOR_D3, LOW);
 
     // TODO catch CTRL-C and close spi and i2c in a correct way

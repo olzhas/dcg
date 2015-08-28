@@ -20,15 +20,18 @@ extern pthread_mutex_t mtx_read;
 //==============================================================================
 void control_thread(void* data)
 {
+    int sig_ign_len = 2;
+    int sig_ignore[] = { SIGRTMIN + 1, SIGRTMIN + 2 };
     /* TODO encapsulate this */
     struct sigaction disp;
 
     bzero(&disp, sizeof(disp));
     disp.sa_handler = SIG_IGN;
-
-    if (sigaction(SIGRTMIN + 1, &disp, NULL) < 0) {
-        syslog(LOG_CRIT, "sigaction_main: %m");
-        _exit(1);
+    for (int i = 0; i < sig_ign_len; i++) {
+        if (sigaction(sig_ignore[i], &disp, NULL) < 0) {
+            syslog(LOG_CRIT, "sigaction_main: %m");
+            _exit(1);
+        }
     }
 
     /* signal handling routines */
@@ -90,9 +93,34 @@ void control_thread(void* data)
 }
 
 //==============================================================================
-void calculate_energy(void* data)
+void energy_thread(void* data)
 {
-    struct state_* pstate = (struct state_*)data;
+    // TODO mutex ?
+    int sig_ign_len = 2;
+    int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
+    /* TODO encapsulate this */
+    struct sigaction disp;
+
+    bzero(&disp, sizeof(disp));
+    disp.sa_handler = SIG_IGN;
+    for (int i = 0; i < sig_ign_len; i++) {
+        if (sigaction(sig_ignore[i], &disp, NULL) < 0) {
+            syslog(LOG_CRIT, "sigaction_main: %m");
+            _exit(1);
+        }
+    }
+
+    /* signal handling routines */
+    struct thread_info_* thread_info = (struct thread_info_*)data;
+    sigset_t* set = thread_info->pset;
+    int s;
+    siginfo_t sig;
+
+    struct timespec timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_nsec = 1000;
+
+    struct state_* pstate = thread_info->pstate;
 
     uint8_t send;
 
@@ -135,51 +163,68 @@ void calculate_energy(void* data)
     send = bcm2835_i2c_write(calib_write, 3);
 
     for (;;) {
-        // TODO sigwait
-        float t = 0.0;
-        bcm2835_i2c_begin(); // I2C begin
-        bcm2835_i2c_set_baudrate(100000);
 
-        bcm2835_i2c_setSlaveAddress(write_address); // write
-        bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+        s = sigtimedwait(set, &sig, &timeout); // locks execution
+        if (s >= 0) {
+            if (s != SIGRTMIN + 2) {
+                write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
+                continue;
+            }
+            float t = 0.0;
+            bcm2835_i2c_begin(); // I2C begin
+            bcm2835_i2c_set_baudrate(100000);
 
-        //			send =
-        // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
-        send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
-        send = bcm2835_i2c_read_register_rs(bus_addr, bus_volt, 2);
-        send = bcm2835_i2c_read_register_rs(power_addr, pwr, 2);
+            bcm2835_i2c_setSlaveAddress(write_address); // write
+            bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
-        // bus voltage, resolution is always 4 mV
-        int bus_16 = (bus_volt[0] << 8) | (bus_volt[1]);
-        bus_16 = bus_16 >> 3;
-        bus_voltage = (float)bus_16 * 0.004; // in Volts
+            //			send =
+            // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
+            send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
+            send = bcm2835_i2c_read_register_rs(bus_addr, bus_volt, 2);
+            send = bcm2835_i2c_read_register_rs(power_addr, pwr, 2);
 
-        int curr_16 = (curr[0] << 8) | (curr[1]);
+            // bus voltage, resolution is always 4 mV
+            int bus_16 = (bus_volt[0] << 8) | (bus_volt[1]);
+            bus_16 = bus_16 >> 3;
+            bus_voltage = (float)bus_16 * 0.004; // in Volts
 
-        if (curr[0] > 127) // if sign bit is 1
-            current = (float)(curr_16 - 0x10000) / 1000.0; // in A (because LSB is 0.5 mA)
-        else
-            current = (float)curr_16 / 1000.0; // in A
+            int curr_16 = (curr[0] << 8) | (curr[1]);
 
-        // power LSB = 20 * current LSB = 20 mW. Therefore, power = power read x
-        // 20 (mW)
-        int pow_16 = (pwr[0] << 8) | (pwr[1]);
-        pstate->power = ((float)pow_16 * 20.0) / 1000.0; // (in W)
-        if (current < 0)
-            pstate->power *= -1.0;
+            if (curr[0] > 127) // if sign bit is 1
+                current = (float)(curr_16 - 0x10000) / 1000.0; // in A (because LSB is 0.5 mA)
+            else
+                current = (float)curr_16 / 1000.0; // in A
 
-        //			discrete_intg();  // update value of energy
+            // power LSB = 20 * current LSB = 20 mW. Therefore, power = power read x
+            // 20 (mW)
+            int pow_16 = (pwr[0] << 8) | (pwr[1]);
+            pstate->power = ((float)pow_16 * 20.0) / 1000.0; // (in W)
+            if (current < 0)
+                pstate->power *= -1.0;
 
-        // calculate power
-        float power_cal = bus_voltage * current;
+            // discrete_intg();  // update value of energy
 
-        //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
-        //%f \n", bus_voltage, current, power_cal, power);
+            // calculate power
+            float power_cal = bus_voltage * current;
 
-        fprintf(fp, "%f\t%f\n", current, t);
-        su2++;
+            //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
+            //%f \n", bus_voltage, current, power_cal, power);
 
-        bcm2835_i2c_end(); // I2C end
+            fprintf(fp, "%f\t%f\n", current, t);
+            su2++;
+
+            bcm2835_i2c_end(); // I2C end
+        }
+        else {
+            switch (errno) {
+            case EAGAIN:
+            case EINTR:
+                break;
+            default:
+                handle_error_en(s, "sigwait");
+                break;
+            }
+        }
     }
     fclose(fp);
 }
@@ -194,16 +239,18 @@ void calculate_energy(void* data)
 //==============================================================================
 void magnet_thread(void* data)
 {
-
+    int sig_ign_len = 2;
+    int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 2 };
     /* TODO encapsulate this */
     struct sigaction disp;
 
     bzero(&disp, sizeof(disp));
     disp.sa_handler = SIG_IGN;
-
-    if (sigaction(SIGRTMIN, &disp, NULL) < 0) {
-        syslog(LOG_CRIT, "sigaction_main: %m");
-        _exit(1);
+    for (int i = 0; i < sig_ign_len; i++) {
+        if (sigaction(sig_ignore[i], &disp, NULL) < 0) {
+            syslog(LOG_CRIT, "sigaction_main: %m");
+            _exit(1);
+        }
     }
 
     /* signal handling routines */
