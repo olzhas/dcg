@@ -151,6 +151,12 @@ void energy_thread(void* data)
 
     printf("Energy thread started.\n");
 
+    bcm2835_i2c_begin(); // I2C begin
+    bcm2835_i2c_set_baudrate(100000);
+
+    bcm2835_i2c_setSlaveAddress(write_address); // write
+    bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+
     FILE* fp = fopen("current_file.txt", "w"); // Open file for writing
     if (fp == NULL) {
         fprintf(stderr, "Cannot open current_file.txt for writing\n");
@@ -171,11 +177,6 @@ void energy_thread(void* data)
                 continue;
             }
             float t = 0.0;
-            bcm2835_i2c_begin(); // I2C begin
-            bcm2835_i2c_set_baudrate(100000);
-
-            bcm2835_i2c_setSlaveAddress(write_address); // write
-            bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
             //			send =
             // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
@@ -212,8 +213,6 @@ void energy_thread(void* data)
 
             fprintf(fp, "%f\t%f\n", current, t);
             su2++;
-
-            bcm2835_i2c_end(); // I2C end
         }
         else {
             switch (errno) {
@@ -226,6 +225,7 @@ void energy_thread(void* data)
             }
         }
     }
+    // FIXME these lines are never run
     fclose(fp);
 }
 

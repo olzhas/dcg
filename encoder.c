@@ -9,6 +9,7 @@ extern pthread_mutex_t mtx_read;
 
 int ENCODER_init()
 {
+    pthread_mutex_lock(&mtx_read);
     bcm2835_gpio_fsel(ENC_PIN, BCM2835_GPIO_FSEL_OUTP);
 
     bcm2835_gpio_fsel(RST_COUNT, BCM2835_GPIO_FSEL_OUTP); // reset count
@@ -38,15 +39,17 @@ int ENCODER_init()
     bcm2835_gpio_set_pud(D5, BCM2835_GPIO_PUD_DOWN);
     bcm2835_gpio_set_pud(D6, BCM2835_GPIO_PUD_DOWN);
     bcm2835_gpio_set_pud(D7, BCM2835_GPIO_PUD_DOWN);
+    pthread_mutex_unlock(&mtx_read);
 
     return 0; // FIXME added error messages
 }
 
 //==============================================================================
-float ENCODER_read()
+double ENCODER_read()
 {
     // mutex lock
     pthread_mutex_lock(&mtx_read);
+    /*
     bcm2835_gpio_fsel(D0, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_fsel(D1, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_fsel(D2, BCM2835_GPIO_FSEL_INPT);
@@ -55,6 +58,16 @@ float ENCODER_read()
     bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_fsel(D7, BCM2835_GPIO_FSEL_INPT);
+
+    bcm2835_gpio_set_pud(D0, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D1, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D2, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D3, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D4, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D5, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D6, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D7, BCM2835_GPIO_PUD_DOWN);
+*/
     uint32_t encoder_array = 0;
 
     // setting OE for counter
@@ -147,7 +160,7 @@ float ENCODER_read()
     //printf("UNION: dec %d - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,
     //    sizeof(encoder_array));
 
-    float rotation = (float)count / 4096.0;
+    double rotation = (double)count / 1000.0;
     //	printf("Decimal value of x = %d \n",count);
     //	printf("Rotations = %f \n",rotation);
 
