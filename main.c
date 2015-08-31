@@ -20,7 +20,17 @@
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
-//TODO catch CTRL-C signal and handle it
+void intHandler(int dummy)
+{
+    puts("Stopping...\n");
+    bcm2835_gpio_write(MOTOR_D3, LOW);
+    bcm2835_delay(10);
+    bcm2835_i2c_end();
+    bcm2835_spi_end(); // TODO put inside of the thread where it is used
+
+    bcm2835_close();
+    exit(EXIT_SUCCESS);
+}
 
 int main(int argc, char* argv[])
 {
@@ -72,6 +82,8 @@ int main(int argc, char* argv[])
             _exit(EXIT_FAILURE); // exit(EXIT_FAILURE) // ?
         }
     }
+
+    signal(SIGINT, intHandler);
 
     pthread_t thread[NUM_THREAD];
     sigset_t set[NUM_THREAD];
