@@ -26,7 +26,7 @@ void intHandler(int dummy)
     bcm2835_gpio_write(MOTOR_D3, LOW);
     bcm2835_delay(10);
     bcm2835_i2c_end();
-    bcm2835_spi_end(); // TODO put inside of the thread where it is used
+    bcm2835_spi_end();
 
     bcm2835_close();
     exit(EXIT_SUCCESS);
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     config.kd = strtod(argv[2], NULL);
 
     uint64_t freq_nanosec[3] = {
-        config.controller_freq, // FIXME: quadrature encoder or pd controller freq?
+        config.controller_freq, // NOTE: quadrature encoder or pd controller freq?
         1e6, // magnetic encoder
         10e6 // power-energy sensor
         // TODO: check if can query the sensor faster (more frequent)
@@ -184,10 +184,7 @@ int main(int argc, char* argv[])
         state.x_desired = x;
     }
 
-    bcm2835_gpio_write(MOTOR_D3, LOW);
-
-    // TODO catch CTRL-C and close spi and i2c in a correct way
-    bcm2835_spi_end(); // TODO put inside of the thread where it is used
-    bcm2835_close();
+    /* return is virtually unreachable,
+     intHandler handles correct deinitialization of the board*/
     return EXIT_SUCCESS;
 }

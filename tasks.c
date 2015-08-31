@@ -100,7 +100,7 @@ void control_thread(void* data)
 //==============================================================================
 void energy_thread(void* data)
 {
-    // TODO mutex ?
+
     int sig_ign_len = 2;
     int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
     /* TODO encapsulate this */
@@ -156,6 +156,8 @@ void energy_thread(void* data)
 
     printf("Energy thread started.\n");
 
+    // TODO mutex ?
+
     bcm2835_i2c_begin(); // I2C begin
     bcm2835_i2c_set_baudrate(100000);
 
@@ -169,7 +171,7 @@ void energy_thread(void* data)
     }
 
     float su2 = 0.0;
-
+    // TODO mutex ?
     send = bcm2835_i2c_write(config_write, 3);
     send = bcm2835_i2c_write(calib_write, 3);
 
@@ -182,7 +184,7 @@ void energy_thread(void* data)
                 continue;
             }
             float t = 0.0;
-
+            // TODO mutex ?
             //			send =
             // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
             send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
