@@ -64,18 +64,23 @@ void control_thread(void* data)
             }
 
             // code for obtaining value from encoder IC
-            pstate->x = ENCODER_read(); // no. of rotations
+            pstate->x = ENCODER_read(); // mm distance
 
             // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-            pstate->dx = discrete_diff(pstate);
+            pstate->dx
+                = discrete_diff(pstate);
             pstate->x_filtered = low_pass_filter(pstate);
             pstate->current_ref = calculate_current_ref(pstate);
+
+            printf("desired = %f, filtered = %f, current = %f\n",
+                pstate->x_desired, pstate->x_filtered, pstate->current_ref);
 
             // maxon controller requires PWM value to be 10% and 90%
             // so, current_ref should be scaled beetween 103 and 921 (10% and 90% of 1024)
 
-            uint32_t pwm_value = 204 * pstate->current_ref + 512.0;
+            uint32_t pwm_value
+                = 204 * pstate->current_ref + 512.0;
             //printf("PWM command: %d\n", pwm_value);
             bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
         }
@@ -325,9 +330,9 @@ void magnet_thread(void* data)
 #define DEBUG
 #ifdef DEBUG
 
-                printf("mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
-                    mag_reading,
-                    mag_position, status_in[0], status_in[1], status_in[2]);
+                // printf("mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
+                //     mag_reading,
+                //     mag_position, status_in[0], status_in[1], status_in[2]);
                 // fflush(stdout);
 
                 if ((status_in[1] == status_in[2]) && status_in[1] == 0) {
