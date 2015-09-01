@@ -100,7 +100,6 @@ void control_thread(void* data)
 //==============================================================================
 void energy_thread(void* data)
 {
-
     int sig_ign_len = 2;
     int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
     /* TODO encapsulate this */
@@ -210,7 +209,8 @@ void energy_thread(void* data)
             if (current < 0)
                 pstate->power *= -1.0;
 
-            // discrete_intg();  // update value of energy
+            pstate->energy = discrete_integ(pstate, 0.01); // update value of energy
+            // NOTE think about better interface for integration routines
 
             // calculate power
             float power_cal = bus_voltage * current;

@@ -130,26 +130,28 @@ double low_pass_filter(const struct state_* pstate)
 }
 
 //==============================================================================
-void discrete_intg(const struct state_* pstate)
+double discrete_integ(const struct state_* pstate, const double freq)
 {
+    double dT_PO = freq;
     //TODO verify the implementation
     static float pow_old;
     static float E_old;
 
     float A = dT_PO / 2.0;
-    static float itr = 1.0;
+    static int itr = 0;
 
-    //pstate->energy = E_old + A * (pstate->power + pow_old); // z transform used to find equation
+    double energy = E_old + A * (pstate->power + pow_old); // z transform used to find equation
     //	printf("intg: A and power, energy = %f, %f, %f\n", A, power, energy);
 
-    if (itr < 1.5) {
-        //pstate->energy = (pstate->power * dT_PO) / 2.0;
+    if (itr == 0) {
+        energy = (pstate->power * dT_PO) / 2.0;
         ++itr;
     }
 
     E_old = pstate->energy;
 
     pow_old = pstate->power;
+    return energy;
 }
 
 //==============================================================================

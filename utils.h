@@ -3,13 +3,20 @@
 #include "declare.h"
 
 // calculation routines
+//==============================================================================
 double calculate_current_ref(const struct state_* pstate);
+//==============================================================================
 double discrete_diff(const struct state_* pstate);
+//==============================================================================
 double low_pass_filter(const struct state_* pstate);
-double discrete_integ(const struct state_* pstate);
+//==============================================================================
+double discrete_integ(const struct state_* pstate, const double freq);
+//==============================================================================
 
 // hardware routines
+//==============================================================================
 void PWM_init();
+//==============================================================================
 
 #define handle_error_en(en, msg) \
     do {                         \
