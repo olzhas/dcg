@@ -134,8 +134,8 @@ double discrete_integ(const struct state_* pstate, const double freq)
 {
     double dT_PO = freq;
     //TODO verify the implementation
-    static float pow_old;
-    static float E_old;
+    static double pow_old;
+    static double E_old;
 
     float A = dT_PO / 2.0;
     static int itr = 0;

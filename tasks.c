@@ -73,8 +73,8 @@ void control_thread(void* data)
             pstate->x_filtered = low_pass_filter(pstate);
             pstate->current_ref = calculate_current_ref(pstate);
 
-            printf("desired = %f, filtered = %f, current = %f\n",
-                pstate->x_desired, pstate->x_filtered, pstate->current_ref);
+            // printf("desired = %f, filtered = %f, current = %f\n",
+            //     pstate->x_desired, pstate->x_filtered, pstate->current_ref);
 
             // maxon controller requires PWM value to be 10% and 90%
             // so, current_ref should be scaled beetween 103 and 921 (10% and 90% of 1024)
@@ -98,6 +98,8 @@ void control_thread(void* data)
 }
 
 //==============================================================================
+
+//
 void energy_thread(void* data)
 {
     int sig_ign_len = 2;
@@ -155,7 +157,7 @@ void energy_thread(void* data)
 
     printf("Energy thread started.\n");
 
-    // TODO mutex ?
+    pthread_mutex_lock(&mtx_read);
 
     bcm2835_i2c_begin(); // I2C begin
     bcm2835_i2c_set_baudrate(100000);
@@ -163,17 +165,49 @@ void energy_thread(void* data)
     bcm2835_i2c_setSlaveAddress(write_address); // write
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
+    send = bcm2835_i2c_write(config_write, 3);
+    if (send != BCM2835_I2C_REASON_OK) {
+        switch (send) {
+        case BCM2835_I2C_REASON_ERROR_NACK:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
+            break;
+        case BCM2835_I2C_REASON_ERROR_CLKT:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
+            break;
+        case BCM2835_I2C_REASON_ERROR_DATA:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
+            break;
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    send = bcm2835_i2c_write(calib_write, 3);
+    if (send != BCM2835_I2C_REASON_OK) {
+        switch (send) {
+        case BCM2835_I2C_REASON_ERROR_NACK:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
+            break;
+        case BCM2835_I2C_REASON_ERROR_CLKT:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
+            break;
+        case BCM2835_I2C_REASON_ERROR_DATA:
+            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
+            break;
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    pthread_mutex_unlock(&mtx_read);
+
     FILE* fp = fopen("current_file.txt", "w"); // Open file for writing
     if (fp == NULL) {
         fprintf(stderr, "Cannot open current_file.txt for writing\n");
         exit(EXIT_FAILURE);
     }
 
-    float su2 = 0.0;
     // TODO mutex ?
-    send = bcm2835_i2c_write(config_write, 3);
-    send = bcm2835_i2c_write(calib_write, 3);
 
+    float t = 0.0;
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -182,13 +216,14 @@ void energy_thread(void* data)
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
                 continue;
             }
-            float t = 0.0;
-            // TODO mutex ?
-            //			send =
-            // bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
+
+            pthread_mutex_lock(&mtx_read);
+
+            //send = bcm2835_i2c_read_register_rs(voltage_addr, volt, 2);
             send = bcm2835_i2c_read_register_rs(current_addr, curr, 2);
             send = bcm2835_i2c_read_register_rs(bus_addr, bus_volt, 2);
             send = bcm2835_i2c_read_register_rs(power_addr, pwr, 2);
+            pthread_mutex_unlock(&mtx_read);
 
             // bus voltage, resolution is always 4 mV
             int bus_16 = (bus_volt[0] << 8) | (bus_volt[1]);
@@ -218,8 +253,11 @@ void energy_thread(void* data)
             //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
             //%f \n", bus_voltage, current, power_cal, power);
 
+            //fprintf(fp, "%f\t%f\n", current, t);
             fprintf(fp, "%f\t%f\n", current, t);
-            su2++;
+            fflush(fp);
+            fprintf(stdout, "%f\t%f\n", current, t);
+            t += 0.01;
         }
         else {
             switch (errno) {
@@ -232,6 +270,7 @@ void energy_thread(void* data)
             }
         }
     }
+    bcm2835_i2c_end(); // I2C begin
     // FIXME these lines are never run
     fclose(fp);
 }
@@ -272,11 +311,12 @@ void magnet_thread(void* data)
 
     struct state_* pstate = thread_info->pstate;
     /*==========================*/
-
+    pthread_mutex_lock(&mtx_read);
     bcm2835_spi_begin();
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST); // The default
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0); // The default
     bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_64); // The default
+    pthread_mutex_unlock(&mtx_read);
     //bcm2835_spi_chipSelect(BCM2835_SPI_CS0); // The default
     //bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW); // the default
 
@@ -301,9 +341,9 @@ void magnet_thread(void* data)
             char mag_in[3] = { 0 };
 
             // mutex lock
-            pthread_mutex_lock(&mtx_read);
 
             int t = 0; // try 10 times
+            pthread_mutex_lock(&mtx_read);
             while (mag_in[1] != 0x80 && t < 10) {
                 bcm2835_gpio_write(PA0, LOW);
                 bcm2835_spi_transfernb(mag_buf, mag_in, sizeof(mag_in));
@@ -311,6 +351,8 @@ void magnet_thread(void* data)
                 bcm2835_gpio_write(PA0, HIGH);
                 t++;
             }
+            pthread_mutex_unlock(&mtx_read);
+
             if (t > 1)
                 printf("t %d\n ", t);
 
@@ -318,11 +360,12 @@ void magnet_thread(void* data)
 
                 char status[] = { 0xA6 };
                 char status_in[3] = { 0 };
-
+                pthread_mutex_lock(&mtx_read);
                 bcm2835_gpio_write(PA0, LOW);
                 bcm2835_spi_transfernb(status, status_in, sizeof(status_in));
                 NSEC_DELAY(SPI_DELAY);
                 bcm2835_gpio_write(PA0, HIGH);
+                pthread_mutex_unlock(&mtx_read);
 
                 float mag_reading = (256.0 * status_in[1]) + status_in[2];
 
@@ -347,11 +390,7 @@ void magnet_thread(void* data)
 
                     //exit(EXIT_FAILURE);
                 }
-
 #endif
-                // mutex lock
-
-                pthread_mutex_unlock(&mtx_read);
                 //pstate->x_desired = mag_position / 2.0;
             }
             else {

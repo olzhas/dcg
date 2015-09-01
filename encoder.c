@@ -48,6 +48,7 @@ int ENCODER_init()
 double ENCODER_read()
 {
     static int32_t zero_shift = 0;
+    static int8_t run = 0;
     // mutex lock
     pthread_mutex_lock(&mtx_read);
 
@@ -157,8 +158,10 @@ double ENCODER_read()
     // convert data to decimal
     //    if(encoder_array - )
     encoder_array = encoder_array & 0x00FFFFFF;
-    if (zero_shift == 0)
+    if (run == 0) {
+        run = 1;
         zero_shift = encoder_array;
+    }
 
     encoder_array = encoder_array - zero_shift;
     int32_t count = encoder_array;
@@ -166,10 +169,10 @@ double ENCODER_read()
     // double length = (double)count / (1000.0) / (4.8 * 2);
     double length = (double)count * 91.0 / 855831;
 
-    printf("UNION: dec %ld - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,
-        sizeof(encoder_array));
-    printf("Decimal value of shift = %ld \n", zero_shift);
-    printf("length (mm) = %lf \n", length);
+    // printf("UNION: dec %ld - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,
+    //     sizeof(encoder_array));
+    // printf("Decimal value of shift = %ld \n", zero_shift);
+    // printf("length (mm) = %lf \n", length);
 
     return length;
 }
