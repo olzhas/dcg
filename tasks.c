@@ -212,7 +212,17 @@ void energy_thread(void* data)
 
     // TODO measure time
 
-    double t = 0.0;
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
+    char buf[] = "2015-12-31 12:59:59.123456789";
+    timespec2str(buf, &now);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tcurrent\n");
+
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -257,12 +267,18 @@ void energy_thread(void* data)
 
             //			printf("pwr: V, I, P_cal, P_meas = %f, %f, %f,
             //%f \n", bus_voltage, current, power_cal, power);
+            struct timespec toc;
+            clock_gettime(CLOCK_REALTIME, &toc);
 
-            //fprintf(fp, "%f\t%f\n", current, t);
-            fprintf(fp, "%f\t%f\n", current, t);
+            toc.tv_sec = toc.tv_sec - now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+            if (toc.tv_nsec < 0) {
+                toc.tv_nsec += 1000000000L;
+                toc.tv_sec--;
+            }
+            fprintf(fp, "%d.%09d\t%f\n", toc.tv_sec, toc.tv_nsec, current);
             fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
             //fprintf(stdout, "%f\t%f\n", current, t);
-            t += 0.01;
         }
         else {
             switch (errno) {
