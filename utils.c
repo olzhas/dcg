@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <bcm2835.h>
 #include <math.h>
@@ -207,4 +208,34 @@ char* get_filename()
     }
 
     return filename;
+}
+//==============================================================================
+// TODO re-implement it since it was taken from stackoverflow.com
+// took from here
+// https://stackoverflow.com/questions/8304259/formatting-struct-timespec/14746954#14746954
+int timespec2str(char* buf, struct timespec* ts)
+{
+    int ret;
+    struct tm t;
+    const size_t len = sizeof("2015-12-31 12:59:59.123456789") + 1;
+    const size_t len_nano = sizeof(".123456789") + 1;
+
+    if (ts->tv_nsec > 1000000000L) {
+        ts->tv_sec = ts->tv_nsec / 1000000000L;
+        ts->tv_nsec = ts->tv_nsec % 1000000000L;
+    }
+
+    tzset();
+    if (localtime_r(&(ts->tv_sec), &t) == NULL)
+        return 1;
+
+    ret = strftime(buf, len, "%F %T", &t);
+    if (ret == 0)
+        return 2;
+
+    ret = snprintf(&buf[len - len_nano], len_nano, ".%09ld", ts->tv_nsec);
+    if (ret >= len_nano)
+        return 3;
+
+    return 0;
 }
