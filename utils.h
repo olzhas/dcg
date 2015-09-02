@@ -13,6 +13,8 @@ double low_pass_filter(const struct state_* pstate);
 double discrete_integ(const struct state_* pstate, const double freq);
 //==============================================================================
 
+char* get_filename();
+
 // hardware routines
 //==============================================================================
 void PWM_init();

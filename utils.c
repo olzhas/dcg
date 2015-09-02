@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <bcm2835.h>
 #include <math.h>
@@ -180,4 +181,30 @@ void PWM_init()
 
     bcm2835_gpio_write(OE_SHIFTER, HIGH);
     bcm2835_gpio_write(MOTOR_D3, LOW);
+}
+
+//==============================================================================
+char* get_filename()
+{
+    time_t curr_time = time(NULL);
+    struct tm start_time = *localtime(&curr_time);
+    char* filename = NULL;
+    filename = calloc(64, sizeof(char));
+    if (filename == NULL) {
+        fprintf(stderr, "get_filename\n");
+        exit(EXIT_FAILURE);
+    }
+
+    sprintf(filename, "%4d-%2d-%2d_%2d-%2d-%2d-power.log",
+        start_time.tm_year + 1900, start_time.tm_mon + 1, start_time.tm_mday,
+        start_time.tm_hour, start_time.tm_min, start_time.tm_sec);
+
+    const int length = 5;
+    int pos[] = { 5, 8, 11, 14, 17 };
+    for (int i = 0; i < length; ++i) {
+        if (filename[pos[i]] == ' ')
+            filename[pos[i]] = '0';
+    }
+
+    return filename;
 }

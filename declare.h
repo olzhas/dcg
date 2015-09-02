@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <signal.h>
 #include <pthread.h>
+#include <stdio.h>
 
 // define various pins for testing
 

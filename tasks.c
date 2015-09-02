@@ -166,6 +166,7 @@ void energy_thread(void* data)
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
     send = bcm2835_i2c_write(config_write, 3);
+    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
         switch (send) {
         case BCM2835_I2C_REASON_ERROR_NACK:
@@ -178,10 +179,11 @@ void energy_thread(void* data)
             fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
             break;
         }
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     send = bcm2835_i2c_write(calib_write, 3);
+    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
         switch (send) {
         case BCM2835_I2C_REASON_ERROR_NACK:
@@ -194,20 +196,23 @@ void energy_thread(void* data)
             fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
             break;
         }
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     pthread_mutex_unlock(&mtx_read);
 
-    FILE* fp = fopen("current_file.txt", "w"); // Open file for writing
+    char* filename = get_filename();
+
+    FILE* fp = fopen(filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
     if (fp == NULL) {
         fprintf(stderr, "Cannot open current_file.txt for writing\n");
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
-    // TODO mutex ?
+    // TODO measure time
 
-    float t = 0.0;
+    double t = 0.0;
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -255,8 +260,8 @@ void energy_thread(void* data)
 
             //fprintf(fp, "%f\t%f\n", current, t);
             fprintf(fp, "%f\t%f\n", current, t);
-            fflush(fp);
-            fprintf(stdout, "%f\t%f\n", current, t);
+            fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
+            //fprintf(stdout, "%f\t%f\n", current, t);
             t += 0.01;
         }
         else {
@@ -270,11 +275,9 @@ void energy_thread(void* data)
             }
         }
     }
-    bcm2835_i2c_end(); // I2C begin
-    // FIXME these lines are never run
-    fclose(fp);
 }
 
+// TODO place somewhere else, looks random and ugly
 #define SPI_DELAY 1000 // in nanoseconds
 
 #define NSEC_DELAY(DURATION)                                        \
@@ -408,8 +411,5 @@ void magnet_thread(void* data)
                 break;
             }
         }
-
-        //			xd = 100.0;
-        // bcm2835_gpio_write(MAG_PIN, LOW);
     }
 }
