@@ -47,30 +47,12 @@ int ENCODER_init()
 //==============================================================================
 double ENCODER_read()
 {
-    static int32_t zero_shift = 0;
+    static int64_t zero_shift = 0;
     static int8_t run = 0;
     // mutex lock
     pthread_mutex_lock(&mtx_read);
 
-    // bcm2835_gpio_fsel(D0, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D1, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D2, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D3, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D4, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT);
-    // bcm2835_gpio_fsel(D7, BCM2835_GPIO_FSEL_INPT);
-    //
-    // bcm2835_gpio_set_pud(D0, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D1, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D2, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D3, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D4, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D5, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D6, BCM2835_GPIO_PUD_DOWN);
-    // bcm2835_gpio_set_pud(D7, BCM2835_GPIO_PUD_DOWN);
-
-    uint32_t encoder_array = 0;
+    uint64_t encoder_array = 0;
 
     // setting OE for counter
     bcm2835_gpio_write(OE_COUNT, LOW);
@@ -164,7 +146,7 @@ double ENCODER_read()
     }
 
     encoder_array = encoder_array - zero_shift;
-    int32_t count = encoder_array;
+    int64_t count = encoder_array;
 
     // double length = (double)count / (1000.0) / (4.8 * 2);
     double length = (double)count * 91.0 / 855831;

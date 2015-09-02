@@ -24,6 +24,7 @@ void intHandler(int dummy)
 {
     puts("Stopping...\n");
     bcm2835_gpio_write(MOTOR_D3, LOW);
+
     bcm2835_delay(10);
     bcm2835_i2c_end();
     bcm2835_spi_end();
@@ -167,10 +168,6 @@ int main(int argc, char* argv[])
         if (timer_settime(timerid[i], TIMER_ABSTIME, &its[i], NULL) == -1)
             handle_error_en(-1, "timer_settime");
     }
-
-    // delay to make sure that all threads are initialised
-    // and iC-MU is conofigured
-    //bcm2835_delay(100); // TODO find the exact time
 
     bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
