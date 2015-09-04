@@ -11,7 +11,7 @@ else()
     message(FATAL_ERROR "You are using an unsupported compiler! Compilation has only been tested with GCC.")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O0 -ggdb")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O0 -ggdb -Wall")
 
 aux_source_directory(. SRC_LIST)
 add_executable(${PROJECT_NAME} ${SRC_LIST})

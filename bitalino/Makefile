@@ -6,14 +6,15 @@ ifdef LINUX_BT
    CFLAGS = -DHASBLUETOOTH
    LIBS = -lbluetooth
 endif
+CXX = g++-4.7
 
 all: test
 
 test: bitalino.o test.o
-	g++ $^ $(LIBS) -o $@
+	$(CXX) $^ $(LIBS) -lrt -o $@
 
 bitalino.o: bitalino.cpp
-	g++ $(CFLAGS) -c $< -o $@
+	$(CXX) $(CFLAGS) -lrt -c $< -o $@
 
 test.o: test.cpp
-	g++ -std=c++0x -c $< -o $@
+	$(CXX) -std=c++11 -lrt -c $< -o $@

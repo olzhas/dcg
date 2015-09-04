@@ -4,6 +4,11 @@
 #include <thread>
 #include <deque>
 #include <vector>
+#include <chrono>
+#include <iostream>
+#include <fstream>
+
+#include <time.h>
 #include <stdio.h>
 #include <sys/select.h>
 
@@ -20,12 +25,114 @@ bool keypressed(void)
     return (select(FD_SETSIZE, &readfds, NULL, NULL, &readtimeout) == 1);
 }
 
-std::mutex write_mutex;
-std::std::vector<BITalino::VFrame(100)> frame; // initialize the frames vector with 100 frames
-std::deque<int> myDeque;
+#define SAMPLES 300000 // 5 min
 
-void collect()
+BITalino::VFrame frames(SAMPLES); // initialize the frames vector with 3000000 frames (5min = 300 sec)
+
+//==============================================================================
+char* get_filename(const char* suffix)
 {
+    time_t curr_time = time(NULL);
+    struct tm start_time = *localtime(&curr_time);
+    char* filename = NULL;
+    filename = (char*)calloc(64, sizeof(char));
+    if (filename == NULL) {
+        fprintf(stderr, "get_filename\n");
+        exit(EXIT_FAILURE);
+    }
+
+    sprintf(filename, "%4d-%2d-%2d_%2d-%2d-%2d-%s.log",
+        start_time.tm_year + 1900, start_time.tm_mon + 1, start_time.tm_mday,
+        start_time.tm_hour, start_time.tm_min, start_time.tm_sec,
+        suffix);
+
+    const int length = 5;
+    int pos[] = { 5, 8, 11, 14, 17 };
+    for (int i = 0; i < length; ++i) {
+        if (filename[pos[i]] == ' ')
+            filename[pos[i]] = '0';
+    }
+
+    return filename;
+}
+//==============================================================================
+// TODO re-implement it since it was taken from stackoverflow.com
+// took from here
+// https://stackoverflow.com/questions/8304259/formatting-struct-timespec/14746954#14746954
+int timespec2str(char* buf, struct timespec* ts)
+{
+    int ret;
+    struct tm t;
+    const size_t len = sizeof("2015-12-31 12:59:59.123456789") + 1;
+    const size_t len_nano = sizeof(".123456789") + 1;
+
+    if (ts->tv_nsec > 1000000000L) {
+        ts->tv_sec = ts->tv_nsec / 1000000000L;
+        ts->tv_nsec = ts->tv_nsec % 1000000000L;
+    }
+
+    tzset();
+    if (localtime_r(&(ts->tv_sec), &t) == NULL)
+        return 1;
+
+    ret = strftime(buf, len, "%F %T", &t);
+    if (ret == 0)
+        return 2;
+
+    ret = snprintf(&buf[len - len_nano], len_nano, ".%09ld", ts->tv_nsec);
+    if (ret >= len_nano)
+        return 3;
+
+    return 0;
+}
+
+//==============================================================================
+void log2File()
+{
+    char* filename = get_filename("EMG");
+    FILE* fp = fopen(filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        fprintf(stderr, "Cannot open current_file.txt for writing\n");
+        exit(EXIT_FAILURE); // TODO send sigint to main()
+    }
+
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
+    char buf[] = "2015-12-31 12:59:59.123456789";
+    timespec2str(buf, &now);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tEMG\n");
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+    for (uint64_t i = 0; i < SAMPLES; i++) { // 5 min
+        struct timespec toc;
+        clock_gettime(CLOCK_REALTIME, &toc);
+
+        toc.tv_sec = toc.tv_sec - now.tv_sec;
+        toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+        if (toc.tv_nsec < 0) {
+            toc.tv_nsec += 1000000000L;
+            toc.tv_sec--;
+        }
+        const BITalino::Frame& f = frames[i];
+        fprintf(fp, "%d.%09d\t%d : %d %d %d %d ; %d %d %d %d %d %d\n", toc.tv_sec, toc.tv_nsec, f.seq,
+            f.digital[0], f.digital[1], f.digital[2], f.digital[3],
+            f.analog[0], f.analog[1], f.analog[2], f.analog[3], f.analog[4], f.analog[5]);
+        fflush(fp);
+        std::this_thread::sleep_for(std::chrono::microseconds(700));
+    }
+}
+
+int main()
+{
+    std::thread logger(log2File);
+
     try {
         // uncomment this block to search for Bluetooth devices (Windows and Linux)
         /*
@@ -38,7 +145,7 @@ void collect()
         puts("Connecting to device...");
 
         // use one of the lines below
-        BITalino dev("98:D3:31:B2:11:6B"); // device MAC address (Windows and Linux)
+        BITalino dev("98:D3:31:70:3E:06"); // device MAC address (Windows and Linux)
 
         //BITalino dev("COM5");  // Bluetooth virtual COM port or USB-UART COM port (Windows)
 
@@ -61,14 +168,8 @@ void collect()
         // use block below if your compiler doesn't support vector initializer lists
 
         do {
-            write_mutex.lock();
-            dev.read(frames); // get 100 frames from device
-            write_mutex.unlock();
-            const BITalino::Frame& f = frames[0]; // get a reference to the first frame of each 100 frames block
-            printf("%d : %d %d %d %d ; %d %d %d %d %d %d\n", // dump the first frame
-                f.seq,
-                f.digital[0], f.digital[1], f.digital[2], f.digital[3],
-                f.analog[0], f.analog[1], f.analog[2], f.analog[3], f.analog[4], f.analog[5]);
+
+            dev.read(frames); // get frames from device
 
         } while (!keypressed()); // until a key is pressed
 
@@ -77,23 +178,7 @@ void collect()
     catch (BITalino::Exception& e) {
         printf("BITalino exception: %s\n", e.getDescription());
     }
-}
 
-void log2File()
-{
-}
-
-int main()
-{
-    size_t count = 10;
-    for (size_t i = 0; i < count; i++) {
-        myDeque.push_back(i);
-    }
-
-    std::thread data(collect);
-    std::thread logger(log2File);
-
-    data.join();
     logger.join();
 
     return 0;
