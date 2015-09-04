@@ -81,7 +81,6 @@ void collect()
 
 void log2File()
 {
-    //TODO
 }
 
 int main()

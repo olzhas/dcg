@@ -185,7 +185,7 @@ void PWM_init()
 }
 
 //==============================================================================
-char* get_filename()
+char* get_filename(const char* suffix)
 {
     time_t curr_time = time(NULL);
     struct tm start_time = *localtime(&curr_time);
@@ -196,9 +196,10 @@ char* get_filename()
         exit(EXIT_FAILURE);
     }
 
-    sprintf(filename, "%4d-%2d-%2d_%2d-%2d-%2d-power.log",
+    sprintf(filename, "%4d-%2d-%2d_%2d-%2d-%2d-%s.log",
         start_time.tm_year + 1900, start_time.tm_mon + 1, start_time.tm_mday,
-        start_time.tm_hour, start_time.tm_min, start_time.tm_sec);
+        start_time.tm_hour, start_time.tm_min, start_time.tm_sec,
+        suffix);
 
     const int length = 5;
     int pos[] = { 5, 8, 11, 14, 17 };

@@ -4,65 +4,65 @@
  * \author     Filipe Silva
  * \version    1.1
  * \date       July 2014
- * 
+ *
  * \section LICENSE
- 
+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU Lesser General Public License for more details.
- 
+
  You should have received a copy of the GNU Lesser General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- 
+
  */
 
 
  /**
   \mainpage
-  
+
   The %BITalino C++ API (available at http://github.com/BITalinoWorld/cpp-api) is a cross-platform library which enables C++ applications to communicate
   with a %BITalino device through a simple interface.
   The API is composed of a header file (bitalino.h)
   and an implementation file ([bitalino.cpp](http://github.com/BITalinoWorld/cpp-api/tree/master/bitalino.cpp)).
   A sample test application in C++ ([test.cpp](http://github.com/BITalinoWorld/cpp-api/tree/master/test.cpp)) is also provided.
-  
+
   There are three ways to connect to a %BITalino device:
   - direct Bluetooth connection using the device Bluetooth MAC address (Windows and Linux);
   - indirect Bluetooth connection using a virtual serial port (all platforms);
   - wired UART connection using a serial port (all platforms).
-  
+
   The API exposes a single class (BITalino). Each instance of this class represents a connection
   to a %BITalino device. The connection is established in the constructor and released in the destructor,
   thus following the RAII paradigm. An application can create several instances (to distinct devices).
   The library is thread-safe between distinct instances. Each instance can be a local variable
   (as in the sample application) or it can be allocated on the heap (using new and delete operators).
-  
+
   \section sampleapp About the sample application
-  
+
   The sample application ([test.cpp](http://github.com/BITalinoWorld/cpp-api/tree/master/test.cpp)) creates an instance to a %BITalino device.
   Then it starts acquiring all channels on the device at 1000 Hz and enters a loop while dumping
   one frame out of 100 and toggling the device green LED. Pressing the Enter key exits the loop,
   destroys the instance and closes the application.
-  
+
   One of the provided constructor calls must be used to connect to the device.
   The string passed to the constructor can be a Bluetooth MAC address (you must change the one provided)
   or a serial port. The serial port string format depends on the platform.
-  
+
   In order to have a more compact and readable code, the sample test code uses C++11 vector initializer lists.
   This new C++ feature is supported only in Visual Studio 2013 (on Windows), GCC 4.4 or later and Clang 3.1
   or later. If you are using an older compiler, use the commented alternative code for the `start()` and
   `trigger()` methods calls.
-  
+
   \section windows Compiling on Windows
-  
+
   The API was tested in Windows XP (32-bit) and Windows 7 (32-bit and 64-bit).
-  
+
   To compile the library and the sample application:
   - create a C++ Empty Project in Visual Studio;
   - copy [bitalino.cpp](http://github.com/BITalinoWorld/cpp-api/tree/master/bitalino.cpp),
@@ -72,11 +72,11 @@
   - edit test.cpp as described \ref sampleapp "above";
   - add a reference to `ws2_32.lib` in Project Properties → Configuration Properties → Linker → Input → Additional Dependencies;
   - build the solution and run the application.
-  
+
   \section linux Compiling on Linux
 
   The API was tested in Ubuntu (32-bit and 64-bit) and Raspberry Pi (Raspbian).
-  
+
   To compile the library and the sample application:
   - `make` and `g++` must be installed;
   - packages `bluez`, `libbluetooth3` and `libbluetooth-dev` must be installed if you want to
@@ -93,14 +93,14 @@
   - edit test.cpp as described \ref sampleapp "above";
   - enter command `make` in the command line to build the library and the application;
   - enter command `./test` in the command line to run the application.
-  
+
   \section macosx Compiling on Mac OS X
-  
+
   The API was tested in Mac OS X 10.6 and 10.9.
-  
+
   On Mac OS X, the %BITalino API Bluetooth functionality is not available, so it is only possible
   to connect to a %BITalino device through a serial port for indirect Bluetooth connections or for wired UART connections.
-  
+
   To compile the library and the sample application:
   - copy [bitalino.cpp](http://github.com/BITalinoWorld/cpp-api/tree/master/bitalino.cpp),
   [bitalino.h](http://github.com/BITalinoWorld/cpp-api/tree/master/bitalino.h),
@@ -110,7 +110,7 @@
     the test.cpp compiling rule in Makefile;
   - edit test.cpp as described \ref sampleapp "above";
   - enter command `make` in the command line to build the library and the application;
-  - enter command `./test` in the command line to run the application.  
+  - enter command `./test` in the command line to run the application.
   */
 
 #ifndef _BITALINOHEADER_
@@ -143,8 +143,7 @@ public:
    };
    typedef std::vector<DevInfo> VDevInfo;
 
-   struct Frame
-   {
+   struct Frame {
       char  seq;        ///< Frame sequence number (0...15)
       bool  digital[4]; ///< Array of digital inputs states (false or true)
       short analog[6];  ///< Array of analog inputs values (0...1023 or 0...63)
@@ -194,9 +193,9 @@ public:
     * \exception Exception (Exception::DEVICE_NOT_FOUND) - Windows only
     */
    BITalino(const char *address);
-   
+
    /**
-    * Disconnects from a %BITalino device. If an aquisition is running, it is stopped. 
+    * Disconnects from a %BITalino device. If an aquisition is running, it is stopped.
     */
    ~BITalino();
 
@@ -207,7 +206,7 @@ public:
     * \exception Exception (Exception::CONTACTING_DEVICE)
     */
    std::string version(void);
-   
+
    /**
     * Starts a signal acquisition from the device.
     * \param[in] samplingRate Sampling rate in Hz. Accepted values are 1, 10, 100 or 1000 Hz. Default value is 1000 Hz.
@@ -220,7 +219,7 @@ public:
     * \exception Exception (Exception::CONTACTING_DEVICE)
     */
    void start(int samplingRate = 1000, const Vint &channels = Vint(), bool simulated = false);
-   
+
    /**
     * Stops a signal acquisition.
     * \remarks This method must be called only during an acquisition.
@@ -228,7 +227,7 @@ public:
     * \exception Exception (Exception::CONTACTING_DEVICE)
     */
    void stop(void);
-   
+
    /**
     * Reads acquisition frames from the device.
     * This method does not return until all requested frames are received from the device.
@@ -236,9 +235,9 @@ public:
     * \remarks This method must be called only during an acquisition.
     * \exception Exception (Exception::DEVICE_NOT_IN_ACQUISITION)
     * \exception Exception (Exception::CONTACTING_DEVICE)
-    */   
+    */
    void read(VFrame &frames);
-   
+
    /**
     * Sets the battery voltage threshold for the low-battery LED.
     * \param[in] value Battery voltage threshold. Default value is 0.
@@ -253,7 +252,7 @@ public:
     * \exception Exception (Exception::CONTACTING_DEVICE)
     */
    void battery(int value = 0);
-   
+
    /**
     * Assigns the digital outputs states.
     * \param[in] digitalOutput Vector of booleans to assign to digital outputs, starting at output 0.

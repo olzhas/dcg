@@ -140,9 +140,8 @@ void energy_thread(void* data)
     char config_write[3] = { 0x00, 0x39,
         0x9F }; // first byte is address, next two are data
     char calib_write[3] = { 0x05, 0x10, 0x00 }; // for value 0x1000 the current LSB
-    // = 1 e-3 A. (see datasheet on how
-    // to determine calibration
-    // register value
+    // = 1 e-3 A. (see datasheet on how to determine calibration register value)
+    // page 17/41
 
     char voltage_addr[1] = { 0x01 }; // voltage register address
     char current_addr[1] = { 0x04 };
@@ -166,42 +165,20 @@ void energy_thread(void* data)
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
     send = bcm2835_i2c_write(config_write, 3);
-    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
-        switch (send) {
-        case BCM2835_I2C_REASON_ERROR_NACK:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
-            break;
-        case BCM2835_I2C_REASON_ERROR_CLKT:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
-            break;
-        case BCM2835_I2C_REASON_ERROR_DATA:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
-            break;
-        }
+        fprintf(stderr, "bcm2835_i2c_write error: %d\n", send);
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     send = bcm2835_i2c_write(calib_write, 3);
-    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
-        switch (send) {
-        case BCM2835_I2C_REASON_ERROR_NACK:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
-            break;
-        case BCM2835_I2C_REASON_ERROR_CLKT:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
-            break;
-        case BCM2835_I2C_REASON_ERROR_DATA:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
-            break;
-        }
+        fprintf(stderr, "bcm2835_i2c_write error: %d\n", send);
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     pthread_mutex_unlock(&mtx_read);
 
-    char* filename = get_filename();
+    char* filename = get_filename("power");
 
     FILE* fp = fopen(filename, "w");
     // Open file for writing, no need to fclose, OS will do it
@@ -210,7 +187,7 @@ void energy_thread(void* data)
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
-    // TODO measure time
+    //measure time
 
     struct timespec now;
 
@@ -345,6 +322,26 @@ void magnet_thread(void* data)
 
     printf("Magnet sensor activated.\n");
 
+    char* filename = get_filename("magnet");
+
+    FILE* fp = fopen(filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        fprintf(stderr, "Cannot open magnet_file.txt for writing\n");
+        exit(EXIT_FAILURE); // TODO send sigint to main()
+    }
+
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
+    char buf[] = "2015-12-31 12:59:59.123456789";
+    timespec2str(buf, &now);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tposition\n");
+
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -391,6 +388,23 @@ void magnet_thread(void* data)
                 // code for calculating xd
 
                 float mag_position = (360.0 * mag_reading) / 65536.0;
+
+                //=================================================================
+                struct timespec toc;
+                clock_gettime(CLOCK_REALTIME, &toc);
+
+                toc.tv_sec = toc.tv_sec - now.tv_sec;
+                toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+                if (toc.tv_nsec < 0) {
+                    toc.tv_nsec += 1000000000L;
+                    toc.tv_sec--;
+                }
+                fprintf(fp, "mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
+                    mag_reading,
+                    mag_position, status_in[0], status_in[1], status_in[2]);
+                fflush(fp);
+//==============================================================================
+
 #define DEBUG
 #ifdef DEBUG
 

@@ -5,7 +5,7 @@ endif
 ifdef LINUX_BT
    CFLAGS = -DHASBLUETOOTH
    LIBS = -lbluetooth
-endif 
+endif
 
 all: test
 
