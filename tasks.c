@@ -15,7 +15,12 @@
 #include "encoder.h"
 #include "utils.h"
 
+#define DURATION 300000
+#define NUM_THREAD 3
+
 extern pthread_mutex_t mtx_read;
+extern int flush_data;
+extern int flush_data_done[NUM_THREAD];
 
 //==============================================================================
 void control_thread(void* data)
@@ -50,12 +55,50 @@ void control_thread(void* data)
     // TODO move somewhere else
     ENCODER_init();
 
-    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     //
+
+    char* filename = get_filename("shaftencoder");
+
+    FILE* fp = fopen(filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        fprintf(stderr, "Cannot open shaft_file.txt for writing\n");
+        exit(EXIT_FAILURE); // TODO send sigint to main()
+    }
+
+    //measure time
+
+    struct timespec now;
+
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
+    char buf[] = "2015-12-31 12:59:59.123456789";
+    timespec2str(buf, &now);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tencoder\n");
 
     printf("control thread started\n");
 
+    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
+
+    time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
+    uint64_t* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(uint64_t));
+    double* log_x = (double*)calloc(DURATION, sizeof(double));
+    double* log_xf = (double*)calloc(DURATION, sizeof(double));
+    double* log_dx = (double*)calloc(DURATION, sizeof(double));
+    uint64_t log_iter = 0;
+
     for (;;) {
+        if (flush_data) {
+            for (size_t i = 0; i < log_iter; i++) {
+                fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
+                    log_tv_sec[i], log_tv_nsec[i], log_x[i], log_xf[i], log_dx[i]);
+                fflush(fp);
+            }
+            flush_data_done[0] = 1;
+        }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
             if (s != SIGRTMIN) {
@@ -68,8 +111,7 @@ void control_thread(void* data)
 
             // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-            pstate->dx
-                = discrete_diff(pstate);
+            pstate->dx = discrete_diff(pstate);
             pstate->x_filtered = low_pass_filter(pstate);
             pstate->current_ref = calculate_current_ref(pstate);
 
@@ -83,6 +125,24 @@ void control_thread(void* data)
                 = 204 * pstate->current_ref + 512.0;
             //printf("PWM command: %d\n", pwm_value);
             bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+            //=================================================================
+            struct timespec toc;
+            clock_gettime(CLOCK_REALTIME, &toc);
+
+            toc.tv_sec = toc.tv_sec - now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+            if (toc.tv_nsec < 0) {
+                toc.tv_nsec += 1000000000L;
+                toc.tv_sec--;
+            }
+            log_tv_sec[log_iter] = toc.tv_sec;
+            log_tv_nsec[log_iter] = toc.tv_nsec;
+            log_x[log_iter] = pstate->x;
+            log_xf[log_iter] = pstate->x_filtered;
+            log_dx[log_iter] = pstate->dx;
+            log_iter++;
+            //fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, pstate->x, pstate->x_filtered, pstate->dx);
+            //fflush(fp);
         }
         else {
             switch (errno) {
@@ -99,9 +159,9 @@ void control_thread(void* data)
 
 //==============================================================================
 
-//
 void energy_thread(void* data)
 {
+
     int sig_ign_len = 2;
     int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
     /* TODO encapsulate this */
@@ -200,8 +260,20 @@ void energy_thread(void* data)
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tcurrent\n");
 
-    for (;;) {
+    time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
+    uint64_t* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(uint64_t));
+    double* log_current = (double*)calloc(DURATION, sizeof(double));
+    uint64_t log_iter = 0;
 
+    for (;;) {
+        if (flush_data) {
+            for (size_t i = 0; i < log_iter; i++) {
+                fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
+                    log_tv_sec[i], log_tv_nsec[i], log_current[i]);
+                fflush(fp);
+            }
+            flush_data_done[0] = 1;
+        }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
             if (s != SIGRTMIN + 2) {
@@ -253,8 +325,13 @@ void energy_thread(void* data)
                 toc.tv_nsec += 1000000000L;
                 toc.tv_sec--;
             }
-            fprintf(fp, "%d.%09d\t%f\n", toc.tv_sec, toc.tv_nsec, current);
-            fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
+
+            log_tv_sec[log_iter] = toc.tv_sec;
+            log_tv_nsec[log_iter] = toc.tv_nsec;
+            log_current[log_iter] = current;
+            log_iter++;
+            // fprintf(fp, "%d.%09ld\t%f\n", (int)toc.tv_sec, toc.tv_nsec, current);
+            // fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
             //fprintf(stdout, "%f\t%f\n", current, t);
         }
         else {
@@ -305,7 +382,6 @@ void magnet_thread(void* data)
     timeout.tv_sec = 0;
     timeout.tv_nsec = 1000;
 
-    struct state_* pstate = thread_info->pstate;
     /*==========================*/
     pthread_mutex_lock(&mtx_read);
     bcm2835_spi_begin();
@@ -383,11 +459,11 @@ void magnet_thread(void* data)
                 bcm2835_gpio_write(PA0, HIGH);
                 pthread_mutex_unlock(&mtx_read);
 
-                float mag_reading = (256.0 * status_in[1]) + status_in[2];
+                double mag_reading = (256.0 * status_in[1]) + status_in[2];
 
                 // code for calculating xd
 
-                float mag_position = (360.0 * mag_reading) / 65536.0;
+                double mag_position = (360.0 * mag_reading) / 65536.0;
 
                 //=================================================================
                 struct timespec toc;
@@ -399,9 +475,10 @@ void magnet_thread(void* data)
                     toc.tv_nsec += 1000000000L;
                     toc.tv_sec--;
                 }
-                fprintf(fp, "mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
-                    mag_reading,
-                    mag_position, status_in[0], status_in[1], status_in[2]);
+                fprintf(fp, "%d.%09ld\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, mag_position);
+                // fprintf(fp, "mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
+                // mag_reading,
+                // mag_position, status_in[0], status_in[1], status_in[2]);
                 fflush(fp);
 //==============================================================================
 

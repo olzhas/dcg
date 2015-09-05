@@ -7,6 +7,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <mutex>
 
 #include <time.h>
 #include <stdio.h>
@@ -26,6 +27,8 @@ bool keypressed(void)
 }
 
 #define SAMPLES 300000 // 5 min
+
+int run = 0;
 
 BITalino::VFrame frames(SAMPLES); // initialize the frames vector with 3000000 frames (5min = 300 sec)
 
@@ -108,7 +111,9 @@ void log2File()
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tEMG\n");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    while (run != 1)
+        ;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     for (uint64_t i = 0; i < SAMPLES; i++) { // 5 min
         struct timespec toc;
@@ -120,17 +125,26 @@ void log2File()
             toc.tv_nsec += 1000000000L;
             toc.tv_sec--;
         }
+
         const BITalino::Frame& f = frames[i];
-        fprintf(fp, "%d.%09d\t%d : %d %d %d %d ; %d %d %d %d %d %d\n", toc.tv_sec, toc.tv_nsec, f.seq,
-            f.digital[0], f.digital[1], f.digital[2], f.digital[3],
-            f.analog[0], f.analog[1], f.analog[2], f.analog[3], f.analog[4], f.analog[5]);
-        fflush(fp);
-        std::this_thread::sleep_for(std::chrono::microseconds(700));
+        // fprintf(fp, "%d.%09d\t%d : %d %d %d %d ; %d %d %d %d %d %d\n", toc.tv_sec, toc.tv_nsec, f.seq,
+        //     f.digital[0], f.digital[1], f.digital[2], f.digital[3],
+        //     f.analog[0], f.analog[1], f.analog[2], f.analog[3], f.analog[4], f.analog[5]);
+
+        fprintf(fp, "%d.%09d %d %d %d\n", toc.tv_sec, toc.tv_nsec,
+            f.seq, f.analog[0], f.analog[1]);
+
+        if (i % 20 == 0) {
+            fflush(fp);
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }
 
 int main()
 {
+    run = 0;
     std::thread logger(log2File);
 
     try {
@@ -166,7 +180,7 @@ int main()
 
         dev.trigger({ false, false, true, false });
         // use block below if your compiler doesn't support vector initializer lists
-
+        run = 1;
         do {
 
             dev.read(frames); // get frames from device

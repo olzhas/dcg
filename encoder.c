@@ -53,6 +53,7 @@ double ENCODER_read()
     pthread_mutex_lock(&mtx_read);
 
     uint64_t encoder_array = 0;
+    uint64_t readbit = 0;
 
     // setting OE for counter
     bcm2835_gpio_write(OE_COUNT, LOW);
@@ -61,8 +62,8 @@ double ENCODER_read()
 
     bcm2835_gpio_write(SEL1, LOW);
     bcm2835_gpio_write(SEL2, HIGH);
-
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D0) << 24);
+    readbit = (bcm2835_gpio_lev(D0) << 24);
+    encoder_array += readbit;
     encoder_array = encoder_array | (bcm2835_gpio_lev(D1) << 25);
     encoder_array = encoder_array | (bcm2835_gpio_lev(D2) << 26);
     encoder_array = encoder_array | (bcm2835_gpio_lev(D3) << 27);
@@ -148,8 +149,8 @@ double ENCODER_read()
     encoder_array = encoder_array - zero_shift;
     int64_t count = encoder_array;
 
-    // double length = (double)count / (1000.0) / (4.8 * 2);
-    double length = (double)count * 91.0 / 855831;
+    double length = (double)count * 2 / (4096 * 4.8);
+    // NOTE the shaft encoder is probably not 225780, 465802
 
     // printf("UNION: dec %ld - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,
     //     sizeof(encoder_array));

@@ -20,9 +20,13 @@
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
+int flush_data;
+int flush_data_done[NUM_THREAD];
+
 void intHandler(int dummy)
 {
     puts("Stopping...\n");
+    flush_data = 1;
     bcm2835_gpio_write(MOTOR_D3, LOW);
 
     bcm2835_delay(10);
@@ -30,6 +34,17 @@ void intHandler(int dummy)
     bcm2835_spi_end();
 
     bcm2835_close();
+
+    int stop = 0;
+    while (!stop) {
+        for (int i = 0; i < NUM_THREAD; i++) {
+            if (flush_data_done[i] == 1)
+                stop++;
+        }
+        if (stop != NUM_THREAD)
+            stop = 0;
+    }
+
     exit(EXIT_SUCCESS);
 }
 
@@ -40,6 +55,8 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\n%s kp kd x_desired\n\n", argv[0]);
         return EXIT_FAILURE;
     }
+
+    flush_data = 0;
 
     /* configuration stage */
     struct config_ config;
@@ -145,7 +162,7 @@ int main(int argc, char* argv[])
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
 
-    struct sigevent sev[NUM_THREAD] = { 0 };
+    struct sigevent sev[NUM_THREAD] = { { 0 } };
     struct itimerspec its[NUM_THREAD];
     timer_t timerid[NUM_THREAD];
 
