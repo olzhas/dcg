@@ -46,6 +46,8 @@ struct config_ {
     double kd; // kd for PD loop
     double current_range; // for calculating PWM value
     uint32_t controller_freq;
+    uint64_t zero_shift;
+    uint8_t zero_config;
 };
 
 struct state_ {
@@ -62,6 +64,37 @@ struct state_ {
 struct thread_info_ {
     struct state_* pstate;
     sigset_t* pset;
+};
+
+#define A_LOT 1024000
+
+struct position_output {
+    struct timespec now;
+    char* filename;
+    time_t tv_sec[A_LOT];
+    long tv_nsec[A_LOT];
+    double x[A_LOT];
+    double xf[A_LOT];
+    double dx[A_LOT];
+    uint64_t log_iter;
+};
+
+struct current_output {
+    struct timespec now;
+    char* filename;
+    time_t tv_sec[A_LOT];
+    long tv_nsec[A_LOT];
+    float current[A_LOT];
+    uint64_t log_iter;
+};
+
+struct magnet_output {
+    struct timespec now;
+    char* filename;
+    time_t tv_sec[A_LOT];
+    long tv_nsec[A_LOT];
+    double magn[A_LOT];
+    uint64_t log_iter;
 };
 
 #endif // DECLARE_H_

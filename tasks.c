@@ -15,7 +15,13 @@
 #include "encoder.h"
 #include "utils.h"
 
+#define DURATION 300000
+#define NUM_THREAD 3
+
 extern pthread_mutex_t mtx_read;
+extern struct position_output pos_out;
+extern struct current_output curr_out;
+extern struct magnet_output magn_out;
 
 //==============================================================================
 void control_thread(void* data)
@@ -44,20 +50,30 @@ void control_thread(void* data)
     timeout.tv_sec = 0;
     timeout.tv_nsec = 1000;
 
-    struct state_* pstate = thread_info->pstate;
+    volatile struct state_* pstate = thread_info->pstate;
     /*==========================*/
 
     // TODO move somewhere else
     ENCODER_init();
 
-    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
-    //
+    pos_out.filename = get_filename("shaftencoder");
+    //measure time
+
+    if (clock_gettime(CLOCK_REALTIME, &pos_out.now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
 
     printf("control thread started\n");
 
+    struct timespec toc;
+
+    pos_out.log_iter = 0;
+    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     for (;;) {
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
+
             if (s != SIGRTMIN) {
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
                 continue;
@@ -68,8 +84,7 @@ void control_thread(void* data)
 
             // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres
 
-            pstate->dx
-                = discrete_diff(pstate);
+            pstate->dx = discrete_diff(pstate);
             pstate->x_filtered = low_pass_filter(pstate);
             pstate->current_ref = calculate_current_ref(pstate);
 
@@ -81,8 +96,29 @@ void control_thread(void* data)
 
             uint32_t pwm_value
                 = 204 * pstate->current_ref + 512.0;
+
             //printf("PWM command: %d\n", pwm_value);
+
             bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+
+            //=================================================================
+
+            clock_gettime(CLOCK_REALTIME, &toc);
+
+            toc.tv_sec = toc.tv_sec - pos_out.now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - pos_out.now.tv_nsec;
+            if (toc.tv_nsec < 0) {
+                toc.tv_nsec += 1000000000L;
+                toc.tv_sec--;
+            }
+            pos_out.tv_sec[pos_out.log_iter] = toc.tv_sec;
+            pos_out.tv_nsec[pos_out.log_iter] = toc.tv_nsec;
+            pos_out.x[pos_out.log_iter] = pstate->x;
+            pos_out.xf[pos_out.log_iter] = pstate->x_filtered;
+            pos_out.dx[pos_out.log_iter] = pstate->dx;
+            ++pos_out.log_iter;
+            //fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, pstate->x, pstate->x_filtered, pstate->dx);
+            //fflush(fp);
         }
         else {
             switch (errno) {
@@ -99,9 +135,9 @@ void control_thread(void* data)
 
 //==============================================================================
 
-//
 void energy_thread(void* data)
 {
+
     int sig_ign_len = 2;
     int sig_ignore[] = { SIGRTMIN, SIGRTMIN + 1 };
     /* TODO encapsulate this */
@@ -140,9 +176,8 @@ void energy_thread(void* data)
     char config_write[3] = { 0x00, 0x39,
         0x9F }; // first byte is address, next two are data
     char calib_write[3] = { 0x05, 0x10, 0x00 }; // for value 0x1000 the current LSB
-    // = 1 e-3 A. (see datasheet on how
-    // to determine calibration
-    // register value
+    // = 1 e-3 A. (see datasheet on how to determine calibration register value)
+    // page 17/41
 
     char voltage_addr[1] = { 0x01 }; // voltage register address
     char current_addr[1] = { 0x04 };
@@ -166,65 +201,31 @@ void energy_thread(void* data)
     bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
 
     send = bcm2835_i2c_write(config_write, 3);
-    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
-        switch (send) {
-        case BCM2835_I2C_REASON_ERROR_NACK:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
-            break;
-        case BCM2835_I2C_REASON_ERROR_CLKT:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
-            break;
-        case BCM2835_I2C_REASON_ERROR_DATA:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
-            break;
-        }
+        fprintf(stderr, "bcm2835_i2c_write error: %d\n", send);
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     send = bcm2835_i2c_write(calib_write, 3);
-    // TODO rewrite this error handling
     if (send != BCM2835_I2C_REASON_OK) {
-        switch (send) {
-        case BCM2835_I2C_REASON_ERROR_NACK:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_NACK");
-            break;
-        case BCM2835_I2C_REASON_ERROR_CLKT:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_CLKT");
-            break;
-        case BCM2835_I2C_REASON_ERROR_DATA:
-            fprintf(stderr, "BCM2835_I2C_REASON_ERROR_DATA");
-            break;
-        }
+        fprintf(stderr, "bcm2835_i2c_write error: %d\n", send);
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
 
     pthread_mutex_unlock(&mtx_read);
 
-    char* filename = get_filename();
+    curr_out.filename = get_filename("power");
 
-    FILE* fp = fopen(filename, "w");
-    // Open file for writing, no need to fclose, OS will do it
-    if (fp == NULL) {
-        fprintf(stderr, "Cannot open current_file.txt for writing\n");
-        exit(EXIT_FAILURE); // TODO send sigint to main()
-    }
+    //measure time
 
-    // TODO measure time
-
-    struct timespec now;
-
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+    if (clock_gettime(CLOCK_REALTIME, &curr_out.now) != 0) { // is it a good practice ?
         fprintf(stderr, "clock_gettime, energy");
         exit(EXIT_FAILURE);
     }
-    char buf[] = "2015-12-31 12:59:59.123456789";
-    timespec2str(buf, &now);
-    fprintf(fp, "now: %s\n", buf);
-    fprintf(fp, "timestamp\tcurrent\n");
+
+    curr_out.log_iter = 0;
 
     for (;;) {
-
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
             if (s != SIGRTMIN + 2) {
@@ -270,14 +271,19 @@ void energy_thread(void* data)
             struct timespec toc;
             clock_gettime(CLOCK_REALTIME, &toc);
 
-            toc.tv_sec = toc.tv_sec - now.tv_sec;
-            toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+            toc.tv_sec = toc.tv_sec - curr_out.now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - curr_out.now.tv_nsec;
             if (toc.tv_nsec < 0) {
                 toc.tv_nsec += 1000000000L;
                 toc.tv_sec--;
             }
-            fprintf(fp, "%d.%09d\t%f\n", toc.tv_sec, toc.tv_nsec, current);
-            fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
+
+            curr_out.tv_sec[curr_out.log_iter] = toc.tv_sec;
+            curr_out.tv_nsec[curr_out.log_iter] = toc.tv_nsec;
+            curr_out.current[curr_out.log_iter] = (double)current;
+            curr_out.log_iter++;
+            // fprintf(fp, "%d.%09ld\t%f\n", (int)toc.tv_sec, toc.tv_nsec, current);
+            // fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
             //fprintf(stdout, "%f\t%f\n", current, t);
         }
         else {
@@ -328,7 +334,6 @@ void magnet_thread(void* data)
     timeout.tv_sec = 0;
     timeout.tv_nsec = 1000;
 
-    struct state_* pstate = thread_info->pstate;
     /*==========================*/
     pthread_mutex_lock(&mtx_read);
     bcm2835_spi_begin();
@@ -345,6 +350,14 @@ void magnet_thread(void* data)
 
     printf("Magnet sensor activated.\n");
 
+    magn_out.filename = get_filename("magnet");
+
+    if (clock_gettime(CLOCK_REALTIME, &magn_out.now) != 0) { // is it a good practice ?
+        fprintf(stderr, "clock_gettime, energy");
+        exit(EXIT_FAILURE);
+    }
+
+    magn_out.log_iter = 0;
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -386,11 +399,29 @@ void magnet_thread(void* data)
                 bcm2835_gpio_write(PA0, HIGH);
                 pthread_mutex_unlock(&mtx_read);
 
-                float mag_reading = (256.0 * status_in[1]) + status_in[2];
+                double mag_reading = (256.0 * status_in[1]) + status_in[2];
 
                 // code for calculating xd
 
-                float mag_position = (360.0 * mag_reading) / 65536.0;
+                double mag_position = (360.0 * mag_reading) / 65536.0;
+
+                //=================================================================
+                struct timespec toc;
+                clock_gettime(CLOCK_REALTIME, &toc);
+
+                toc.tv_sec = toc.tv_sec - magn_out.now.tv_sec;
+                toc.tv_nsec = toc.tv_nsec - magn_out.now.tv_nsec;
+                if (toc.tv_nsec < 0) {
+                    toc.tv_nsec += 1000000000L;
+                    toc.tv_sec--;
+                }
+
+                magn_out.tv_sec[magn_out.log_iter] = toc.tv_sec;
+                magn_out.tv_nsec[magn_out.log_iter] = toc.tv_nsec;
+                magn_out.magn[magn_out.log_iter] = mag_position;
+                magn_out.log_iter++;
+//==============================================================================
+
 #define DEBUG
 #ifdef DEBUG
 

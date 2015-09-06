@@ -11,8 +11,16 @@ else()
     message(FATAL_ERROR "You are using an unsupported compiler! Compilation has only been tested with GCC.")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O0 -ggdb")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -O0 -ggdb -Wall")
 
 aux_source_directory(. SRC_LIST)
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 target_link_libraries(${PROJECT_NAME} bcm2835 pthread rt m)
+
+add_custom_target(
+   bitalino_record
+   COMMAND make
+   WORKING_DIRECTORY ../bitalino/
+)
+
+add_dependencies(${PROJECT_NAME} bitalino_record)
