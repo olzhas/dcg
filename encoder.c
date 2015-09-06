@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <bcm2835.h>
+#include <math.h>
 
 #include "declare.h"
 
@@ -9,6 +10,7 @@ extern pthread_mutex_t mtx_read;
 
 int ENCODER_init()
 {
+
     pthread_mutex_lock(&mtx_read);
     bcm2835_gpio_fsel(ENC_PIN, BCM2835_GPIO_FSEL_OUTP);
 
@@ -47,12 +49,29 @@ int ENCODER_init()
 //==============================================================================
 double ENCODER_read()
 {
-    static int64_t zero_shift = 0;
-    static int8_t run = 0;
+    static int run = 0;
+    static uint64_t zero_shift;
     // mutex lock
     pthread_mutex_lock(&mtx_read);
+    bcm2835_gpio_fsel(D0, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D1, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D2, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D3, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D4, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D5, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D6, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_fsel(D7, BCM2835_GPIO_FSEL_INPT);
 
-    uint64_t encoder_array = 0;
+    bcm2835_gpio_set_pud(D0, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D1, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D2, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D3, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D4, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D5, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D6, BCM2835_GPIO_PUD_DOWN);
+    bcm2835_gpio_set_pud(D7, BCM2835_GPIO_PUD_DOWN);
+
+    volatile double encoder_array = 0;
     uint64_t readbit = 0;
 
     // setting OE for counter
@@ -62,16 +81,12 @@ double ENCODER_read()
 
     bcm2835_gpio_write(SEL1, LOW);
     bcm2835_gpio_write(SEL2, HIGH);
-    readbit = (bcm2835_gpio_lev(D0) << 24);
-    encoder_array += readbit;
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D1) << 25);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D2) << 26);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D3) << 27);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D4) << 28);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D5) << 29);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D6) << 30);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D7) << 31);
-
+    int pins[8] = { D0, D1, D2, D3, D4, D5, D6, D7 };
+    for (int i = 24; i < 32; i++) {
+        readbit = bcm2835_gpio_lev(pins[i - 24]);
+        //readbit = readbit << i;
+        encoder_array += pow(2.0, i) * readbit;
+    }
     // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
     //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
     //     bcm2835_gpio_lev(D2), bcm2835_gpio_lev(D1), bcm2835_gpio_lev(D0));
@@ -81,14 +96,10 @@ double ENCODER_read()
     bcm2835_gpio_write(SEL1, HIGH);
     bcm2835_gpio_write(SEL2, HIGH);
 
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D0) << 16);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D1) << 17);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D2) << 18);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D3) << 19);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D4) << 20);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D5) << 21);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D6) << 22);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D7) << 23);
+    for (int i = 16; i < 24; i++) {
+        readbit = bcm2835_gpio_lev(pins[i - 16]);
+        encoder_array += pow(2.0, i) * readbit;
+    }
 
     // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
     //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
@@ -99,14 +110,10 @@ double ENCODER_read()
     bcm2835_gpio_write(SEL1, LOW);
     bcm2835_gpio_write(SEL2, LOW);
 
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D0) << 8);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D1) << 9);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D2) << 10);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D3) << 11);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D4) << 12);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D5) << 13);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D6) << 14);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D7) << 15);
+    for (int i = 8; i < 16; i++) {
+        readbit = bcm2835_gpio_lev(pins[i - 8]);
+        encoder_array += pow(2.0, i) * readbit;
+    }
 
     // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
     //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
@@ -117,14 +124,10 @@ double ENCODER_read()
     bcm2835_gpio_write(SEL1, HIGH);
     bcm2835_gpio_write(SEL2, LOW);
 
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D0) << 0);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D1) << 1);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D2) << 2);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D3) << 3);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D4) << 4);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D5) << 5);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D6) << 6);
-    encoder_array = encoder_array | (bcm2835_gpio_lev(D7) << 7);
+    for (int i = 0; i < 8; i++) {
+        readbit = bcm2835_gpio_lev(pins[i]);
+        encoder_array += pow(2.0, i) * readbit;
+    }
 
     // printf("%d%d%d%d%d%d%d%d ", bcm2835_gpio_lev(D7), bcm2835_gpio_lev(D6),
     //     bcm2835_gpio_lev(D5), bcm2835_gpio_lev(D4), bcm2835_gpio_lev(D3),
@@ -140,16 +143,16 @@ double ENCODER_read()
 
     // convert data to decimal
     //    if(encoder_array - )
-    encoder_array = encoder_array & 0x00FFFFFF;
+    //encoder_array = encoder_array & 0x00FFFFFF;
     if (run == 0) {
         run = 1;
         zero_shift = encoder_array;
     }
 
     encoder_array = encoder_array - zero_shift;
-    int64_t count = encoder_array;
+    double count = encoder_array;
 
-    double length = (double)count * 2 / (4096 * 4.8);
+    double length = (double)count * 2.0 / (4096.0 * 4.8);
     // NOTE the shaft encoder is probably not 225780, 465802
 
     // printf("UNION: dec %ld - hex 0x%x, sizeof %d\n", encoder_array, encoder_array,

@@ -19,10 +19,9 @@
 #define NUM_THREAD 3
 
 extern pthread_mutex_t mtx_read;
-extern volatile int flush_data;
-extern volatile int flush_data_one;
-extern volatile int flush_data_two;
-extern volatile int flush_data_thr;
+extern struct position_output pos_out;
+extern struct current_output curr_out;
+extern struct magnet_output magn_out;
 
 //==============================================================================
 void control_thread(void* data)
@@ -57,60 +56,24 @@ void control_thread(void* data)
     // TODO move somewhere else
     ENCODER_init();
 
-    //
-
-    char* filename = get_filename("shaftencoder");
-
-    FILE* fp = fopen(filename, "w");
-    // Open file for writing, no need to fclose, OS will do it
-    if (fp == NULL) {
-        fprintf(stderr, "Cannot open shaft_file.txt for writing\n");
-        exit(EXIT_FAILURE); // TODO send sigint to main()
-    }
-
+    pos_out.filename = get_filename("shaftencoder");
     //measure time
 
-    struct timespec now;
-
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+    if (clock_gettime(CLOCK_REALTIME, &pos_out.now) != 0) { // is it a good practice ?
         fprintf(stderr, "clock_gettime, energy");
         exit(EXIT_FAILURE);
     }
-    char buf[] = "2015-12-31 12:59:59.123456789";
-    timespec2str(buf, &now);
-    fprintf(fp, "now: %s\n", buf);
-    fprintf(fp, "timestamp\tencoder\n");
 
     printf("control thread started\n");
 
-    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
-
-    volatile time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
-    volatile long* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(long));
-    volatile double* log_x = (double*)calloc(DURATION, sizeof(double));
-    volatile double* log_xf = (double*)calloc(DURATION, sizeof(double));
-    volatile double* log_dx = (double*)calloc(DURATION, sizeof(double));
-    volatile int64_t log_iter = 0;
     struct timespec toc;
 
+    pos_out.log_iter = 0;
+    bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     for (;;) {
-        if (flush_data) {
-            fprintf(fp, "%lld\n", log_iter);
-            for (size_t i = 0; i < log_iter; i++) {
-                fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
-                    log_tv_sec[i], log_tv_nsec[i], log_x[i], log_xf[i], log_dx[i]);
-                fflush(fp);
-            }
-            fclose(fp);
-            //bcm2835_delay(2000);
-            flush_data_one = 1;
-            while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
-                puts("Writing to file in progress...");
-            }
-            break;
-        }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
+
             if (s != SIGRTMIN) {
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
                 continue;
@@ -133,24 +96,27 @@ void control_thread(void* data)
 
             uint32_t pwm_value
                 = 204 * pstate->current_ref + 512.0;
+
             //printf("PWM command: %d\n", pwm_value);
+
             bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
+
             //=================================================================
 
             clock_gettime(CLOCK_REALTIME, &toc);
 
-            toc.tv_sec = toc.tv_sec - now.tv_sec;
-            toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+            toc.tv_sec = toc.tv_sec - pos_out.now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - pos_out.now.tv_nsec;
             if (toc.tv_nsec < 0) {
                 toc.tv_nsec += 1000000000L;
                 toc.tv_sec--;
             }
-            log_tv_sec[log_iter] = toc.tv_sec;
-            log_tv_nsec[log_iter] = toc.tv_nsec;
-            log_x[log_iter] = pstate->x;
-            log_xf[log_iter] = pstate->x_filtered;
-            log_dx[log_iter] = pstate->dx;
-            ++log_iter;
+            pos_out.tv_sec[pos_out.log_iter] = toc.tv_sec;
+            pos_out.tv_nsec[pos_out.log_iter] = toc.tv_nsec;
+            pos_out.x[pos_out.log_iter] = pstate->x;
+            pos_out.xf[pos_out.log_iter] = pstate->x_filtered;
+            pos_out.dx[pos_out.log_iter] = pstate->dx;
+            ++pos_out.log_iter;
             //fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, pstate->x, pstate->x_filtered, pstate->dx);
             //fflush(fp);
         }
@@ -248,49 +214,18 @@ void energy_thread(void* data)
 
     pthread_mutex_unlock(&mtx_read);
 
-    char* filename = get_filename("power");
-
-    FILE* fp = fopen(filename, "w");
-    // Open file for writing, no need to fclose, OS will do it
-    if (fp == NULL) {
-        fprintf(stderr, "Cannot open current_file.txt for writing\n");
-        exit(EXIT_FAILURE); // TODO send sigint to main()
-    }
+    curr_out.filename = get_filename("power");
 
     //measure time
 
-    struct timespec now;
-
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+    if (clock_gettime(CLOCK_REALTIME, &curr_out.now) != 0) { // is it a good practice ?
         fprintf(stderr, "clock_gettime, energy");
         exit(EXIT_FAILURE);
     }
-    char buf[] = "2015-12-31 12:59:59.123456789";
-    timespec2str(buf, &now);
-    fprintf(fp, "now: %s\n", buf);
-    fprintf(fp, "timestamp\tcurrent\n");
 
-    volatile time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
-    volatile long* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(long));
-    volatile double* log_current = (double*)calloc(DURATION, sizeof(double));
-    volatile uint64_t log_iter = 0;
+    curr_out.log_iter = 0;
 
     for (;;) {
-        if (flush_data) {
-            for (size_t i = 0; i < log_iter; i++) {
-                fprintf(fp, "%d.%09ld\t%lf\n",
-                    log_tv_sec[i], log_tv_nsec[i], log_current[i]);
-
-                fflush(fp);
-            }
-            fclose(fp);
-            //bcm2835_delay(2000);
-            flush_data_two = 1;
-            while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
-                puts("Writing to file in progress...\n");
-            }
-            break;
-        }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
             if (s != SIGRTMIN + 2) {
@@ -336,17 +271,17 @@ void energy_thread(void* data)
             struct timespec toc;
             clock_gettime(CLOCK_REALTIME, &toc);
 
-            toc.tv_sec = toc.tv_sec - now.tv_sec;
-            toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+            toc.tv_sec = toc.tv_sec - curr_out.now.tv_sec;
+            toc.tv_nsec = toc.tv_nsec - curr_out.now.tv_nsec;
             if (toc.tv_nsec < 0) {
                 toc.tv_nsec += 1000000000L;
                 toc.tv_sec--;
             }
 
-            log_tv_sec[log_iter] = toc.tv_sec;
-            log_tv_nsec[log_iter] = toc.tv_nsec;
-            log_current[log_iter] = current;
-            log_iter++;
+            curr_out.tv_sec[curr_out.log_iter] = toc.tv_sec;
+            curr_out.tv_nsec[curr_out.log_iter] = toc.tv_nsec;
+            curr_out.current[curr_out.log_iter] = (double)current;
+            curr_out.log_iter++;
             // fprintf(fp, "%d.%09ld\t%f\n", (int)toc.tv_sec, toc.tv_nsec, current);
             // fflush(fp); // if not called there is a possibility to lose some data if program exited abnormally
             //fprintf(stdout, "%f\t%f\n", current, t);
@@ -415,28 +350,14 @@ void magnet_thread(void* data)
 
     printf("Magnet sensor activated.\n");
 
-    char* filename = get_filename("magnet");
+    magn_out.filename = get_filename("magnet");
 
-    FILE* fp = fopen(filename, "w");
-    // Open file for writing, no need to fclose, OS will do it
-    if (fp == NULL) {
-        fprintf(stderr, "Cannot open magnet_file.txt for writing\n");
-        exit(EXIT_FAILURE); // TODO send sigint to main()
-    }
-
-    struct timespec now;
-
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) { // is it a good practice ?
+    if (clock_gettime(CLOCK_REALTIME, &magn_out.now) != 0) { // is it a good practice ?
         fprintf(stderr, "clock_gettime, energy");
         exit(EXIT_FAILURE);
     }
-    char buf[] = "2015-12-31 12:59:59.123456789";
-    timespec2str(buf, &now);
-    fprintf(fp, "now: %s\n", buf);
-    fprintf(fp, "timestamp\tposition\n");
 
-    flush_data_thr = 1;
-
+    magn_out.log_iter = 0;
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
@@ -488,17 +409,17 @@ void magnet_thread(void* data)
                 struct timespec toc;
                 clock_gettime(CLOCK_REALTIME, &toc);
 
-                toc.tv_sec = toc.tv_sec - now.tv_sec;
-                toc.tv_nsec = toc.tv_nsec - now.tv_nsec;
+                toc.tv_sec = toc.tv_sec - magn_out.now.tv_sec;
+                toc.tv_nsec = toc.tv_nsec - magn_out.now.tv_nsec;
                 if (toc.tv_nsec < 0) {
                     toc.tv_nsec += 1000000000L;
                     toc.tv_sec--;
                 }
-                fprintf(fp, "%d.%09ld\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, mag_position);
-                // fprintf(fp, "mag: Reading: %.3f,	angle: %.3f,	read: %x, %X, %X\n",
-                // mag_reading,
-                // mag_position, status_in[0], status_in[1], status_in[2]);
-                fflush(fp);
+
+                magn_out.tv_sec[magn_out.log_iter] = toc.tv_sec;
+                magn_out.tv_nsec[magn_out.log_iter] = toc.tv_nsec;
+                magn_out.magn[magn_out.log_iter] = mag_position;
+                magn_out.log_iter++;
 //==============================================================================
 
 #define DEBUG

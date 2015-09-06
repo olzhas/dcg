@@ -20,23 +20,92 @@
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
-volatile int flush_data;
-volatile int flush_data_one = 0;
-volatile int flush_data_two = 0;
-volatile int flush_data_thr = 0;
+volatile struct position_output pos_out = { 0 };
+volatile struct current_output curr_out = { 0 };
+volatile struct magnet_output magn_out = { 0 };
 
 void intHandler(int dummy)
 {
     puts("Stopping...\n");
-    flush_data = 1;
     bcm2835_gpio_write(MOTOR_D3, LOW);
 
     bcm2835_i2c_end();
     bcm2835_spi_end();
-    while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
-        puts("Writing to file in progress...");
-        bcm2835_delay(500);
+    //==========================================================================
+    /* ENCODER OUTPUT */
+    printf("encoder data: ");
+    FILE* fp = fopen(pos_out.filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        printf("Cannot open %s for writing\n", pos_out.filename);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
     }
+
+    char buf[] = "2015-12-31 12:59:59.123456789";
+    timespec2str(buf, &pos_out.now);
+    fprintf(fp, "samples: %ld\n", pos_out.log_iter);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tencoder\n");
+
+    for (size_t i = 0; i < pos_out.log_iter; i++) {
+        fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
+            (int)pos_out.tv_sec[i], pos_out.tv_nsec[i],
+            pos_out.x[i], pos_out.xf[i], pos_out.dx[i]);
+        fflush(fp);
+    }
+    fclose(fp);
+    puts("done");
+    /* ENCODER OUTPUT */
+    //==========================================================================
+
+    //==========================================================================
+    /* CURRENT OUTPUT */
+    printf("current data: ");
+    fp = fopen(curr_out.filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        printf("Cannot open %s for writing\n", curr_out.filename);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
+    }
+    timespec2str(buf, &curr_out.now);
+    fprintf(fp, "samples: %ld\n", curr_out.log_iter);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tcurrent\n");
+
+    for (size_t i = 0; i < curr_out.log_iter; i++) {
+        fprintf(fp, "%d.%09ld\t%f\n",
+            (int)curr_out.tv_sec[i], curr_out.tv_nsec[i], curr_out.current[i]);
+        fflush(fp);
+    }
+    fclose(fp);
+    puts("done");
+    /* CURRENT OUTPUT */
+    //==========================================================================
+
+    //==========================================================================
+    /* MAGNET OUTPUT */
+    printf("magnet encoder data: ");
+    fp = fopen(magn_out.filename, "w");
+    // Open file for writing, no need to fclose, OS will do it
+    if (fp == NULL) {
+        printf("Cannot open %s for writing\n", magn_out.filename);
+        exit(EXIT_FAILURE); // TODO send sigint to main()
+    }
+    timespec2str(buf, &magn_out.now);
+    fprintf(fp, "samples: %ld\n", magn_out.log_iter);
+    fprintf(fp, "now: %s\n", buf);
+    fprintf(fp, "timestamp\tmagnet\n");
+
+    for (size_t i = 0; i < magn_out.log_iter; i++) {
+        fprintf(fp, "%d.%09ld\t%lf\n",
+            (int)magn_out.tv_sec[i], magn_out.tv_nsec[i], magn_out.magn[i]);
+        fflush(fp);
+    }
+    fclose(fp);
+    puts("done");
+    /* MAGNET OUTPUT */
+    //==========================================================================
+
     bcm2835_close();
 }
 
@@ -48,8 +117,6 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    flush_data = 0;
-
     /* configuration stage */
     struct config_ config;
 
@@ -59,6 +126,7 @@ int main(int argc, char* argv[])
     config.current_range = 2.0; // for range -x to +x put I_range = x
     config.kp = strtod(argv[1], NULL);
     config.kd = strtod(argv[2], NULL);
+    config.zero_config = 0;
 
     uint64_t freq_nanosec[3] = {
         config.controller_freq, // NOTE: quadrature encoder or pd controller freq?
