@@ -121,8 +121,8 @@ int main(int argc, char* argv[])
     struct config_ config;
 
     config.controller_freq = 1e6;
-    config.freq_diff = 200.0;
-    config.freq_filt = 200.0;
+    config.freq_diff = 400.0;
+    config.freq_filt = 100.0;
     config.current_range = 2.0; // for range -x to +x put I_range = x
     config.kp = strtod(argv[1], NULL);
     config.kd = strtod(argv[2], NULL);
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
     uint64_t freq_nanosec[3] = {
         config.controller_freq, // NOTE: quadrature encoder or pd controller freq?
         1e6, // magnetic encoder
-        10e6 // power-energy sensor
+        5e6 // power-energy sensor
         // TODO: check if can query the sensor faster (more frequent)
     };
 
@@ -246,18 +246,30 @@ int main(int argc, char* argv[])
             handle_error_en(-1, "timer_settime");
     }
 
-    bcm2835_gpio_write(MOTOR_D3, HIGH);
+    //bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
 
     printf("\n Press CTRL-C to stop the motor.\n");
 
-    for (;;) {
-        int x = 0;
-        printf("Enter new desired position (x_desired)\n");
-        scanf("%d", &x);
-        state.x_desired = x;
-    }
+    /* PROCEDURES START */
+    bcm2835_delay(1000);
 
+#define DELAY_KMIN 60000
+#define DELAY_STEP 2000
+#define DELAY_KMAX 60000
+
+    state.x_desired = 0;
+    bcm2835_delay(DELAY_KMIN);
+    for (int i = 0; i < 90; i += 10) {
+        state.x_desired = i;
+        bcm2835_delay(DELAY_STEP);
+    }
+    state.x_desired = 80;
+    bcm2835_delay(DELAY_KMAX);
+
+    /* PROCEDURES END */
+
+    intHandler(0);
     /* return is virtually unreachable,
      intHandler handles correct deinitialization of the board*/
     return EXIT_SUCCESS;

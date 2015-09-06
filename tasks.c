@@ -358,6 +358,8 @@ void magnet_thread(void* data)
     }
 
     magn_out.log_iter = 0;
+
+    // NOTE calibration of magnet, zero
     for (;;) {
 
         s = sigtimedwait(set, &sig, &timeout); // locks execution
