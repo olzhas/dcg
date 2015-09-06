@@ -64,4 +64,13 @@ struct thread_info_ {
     sigset_t* pset;
 };
 
+#define A_LOT 1024000
+
+struct position_output {
+    time_t log_tv_sec[A_LOT];
+    uint64_t log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(uint64_t));
+    volatile double* log_current = (double*)calloc(DURATION, sizeof(double));
+    volatile uint64_t log_iter = 0;
+}
+
 #endif // DECLARE_H_

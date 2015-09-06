@@ -20,8 +20,10 @@
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
-int flush_data;
-int flush_data_done[NUM_THREAD];
+volatile int flush_data;
+volatile int flush_data_one = 0;
+volatile int flush_data_two = 0;
+volatile int flush_data_thr = 0;
 
 void intHandler(int dummy)
 {
@@ -29,23 +31,13 @@ void intHandler(int dummy)
     flush_data = 1;
     bcm2835_gpio_write(MOTOR_D3, LOW);
 
-    bcm2835_delay(10);
     bcm2835_i2c_end();
     bcm2835_spi_end();
-
-    bcm2835_close();
-
-    int stop = 0;
-    while (!stop) {
-        for (int i = 0; i < NUM_THREAD; i++) {
-            if (flush_data_done[i] == 1)
-                stop++;
-        }
-        if (stop != NUM_THREAD)
-            stop = 0;
+    while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
+        puts("Writing to file in progress...");
+        bcm2835_delay(500);
     }
-
-    exit(EXIT_SUCCESS);
+    bcm2835_close();
 }
 
 int main(int argc, char* argv[])
@@ -76,7 +68,7 @@ int main(int argc, char* argv[])
     };
 
     /* store information about the state */
-    struct state_ state;
+    volatile struct state_ state;
     state.config = &config;
     state.x_desired = strtod(argv[3], NULL);
 

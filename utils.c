@@ -197,17 +197,17 @@ char* get_filename(const char* suffix)
         exit(EXIT_FAILURE);
     }
 
-    sprintf(filename, "%4d-%2d-%2d_%2d-%2d-%2d-%s.log",
+    sprintf(filename, "../logs/%4d-%02d-%02d_%02d-%02d-%02d-%s.log",
         start_time.tm_year + 1900, start_time.tm_mon + 1, start_time.tm_mday,
         start_time.tm_hour, start_time.tm_min, start_time.tm_sec,
         suffix);
 
-    const int length = 5;
-    int pos[] = { 5, 8, 11, 14, 17 };
-    for (int i = 0; i < length; ++i) {
-        if (filename[pos[i]] == ' ')
-            filename[pos[i]] = '0';
-    }
+    // const int length = 5;
+    // int pos[] = { 5, 8, 11, 14, 17 };
+    // for (int i = 0; i < length; ++i) {
+    //     if (filename[pos[i]] == ' ')
+    //         filename[pos[i]] = '0';
+    // }
 
     return filename;
 }

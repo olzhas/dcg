@@ -19,8 +19,10 @@
 #define NUM_THREAD 3
 
 extern pthread_mutex_t mtx_read;
-extern int flush_data;
-extern int flush_data_done[NUM_THREAD];
+extern volatile int flush_data;
+extern volatile int flush_data_one;
+extern volatile int flush_data_two;
+extern volatile int flush_data_thr;
 
 //==============================================================================
 void control_thread(void* data)
@@ -49,7 +51,7 @@ void control_thread(void* data)
     timeout.tv_sec = 0;
     timeout.tv_nsec = 1000;
 
-    struct state_* pstate = thread_info->pstate;
+    volatile struct state_* pstate = thread_info->pstate;
     /*==========================*/
 
     // TODO move somewhere else
@@ -83,21 +85,29 @@ void control_thread(void* data)
 
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
 
-    time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
-    uint64_t* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(uint64_t));
-    double* log_x = (double*)calloc(DURATION, sizeof(double));
-    double* log_xf = (double*)calloc(DURATION, sizeof(double));
-    double* log_dx = (double*)calloc(DURATION, sizeof(double));
-    uint64_t log_iter = 0;
+    volatile time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
+    volatile long* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(long));
+    volatile double* log_x = (double*)calloc(DURATION, sizeof(double));
+    volatile double* log_xf = (double*)calloc(DURATION, sizeof(double));
+    volatile double* log_dx = (double*)calloc(DURATION, sizeof(double));
+    volatile int64_t log_iter = 0;
+    struct timespec toc;
 
     for (;;) {
         if (flush_data) {
+            fprintf(fp, "%lld\n", log_iter);
             for (size_t i = 0; i < log_iter; i++) {
                 fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
                     log_tv_sec[i], log_tv_nsec[i], log_x[i], log_xf[i], log_dx[i]);
                 fflush(fp);
             }
-            flush_data_done[0] = 1;
+            fclose(fp);
+            //bcm2835_delay(2000);
+            flush_data_one = 1;
+            while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
+                puts("Writing to file in progress...");
+            }
+            break;
         }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
@@ -126,7 +136,7 @@ void control_thread(void* data)
             //printf("PWM command: %d\n", pwm_value);
             bcm2835_pwm_set_data(PWM_CHANNEL, pwm_value);
             //=================================================================
-            struct timespec toc;
+
             clock_gettime(CLOCK_REALTIME, &toc);
 
             toc.tv_sec = toc.tv_sec - now.tv_sec;
@@ -140,7 +150,7 @@ void control_thread(void* data)
             log_x[log_iter] = pstate->x;
             log_xf[log_iter] = pstate->x_filtered;
             log_dx[log_iter] = pstate->dx;
-            log_iter++;
+            ++log_iter;
             //fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n", (int)toc.tv_sec, toc.tv_nsec, pstate->x, pstate->x_filtered, pstate->dx);
             //fflush(fp);
         }
@@ -260,19 +270,26 @@ void energy_thread(void* data)
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tcurrent\n");
 
-    time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
-    uint64_t* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(uint64_t));
-    double* log_current = (double*)calloc(DURATION, sizeof(double));
-    uint64_t log_iter = 0;
+    volatile time_t* log_tv_sec = (time_t*)calloc(DURATION, sizeof(time_t));
+    volatile long* log_tv_nsec = (uint64_t*)calloc(DURATION, sizeof(long));
+    volatile double* log_current = (double*)calloc(DURATION, sizeof(double));
+    volatile uint64_t log_iter = 0;
 
     for (;;) {
         if (flush_data) {
             for (size_t i = 0; i < log_iter; i++) {
-                fprintf(fp, "%d.%09ld\t%lf\t%lf\t%lf\n",
+                fprintf(fp, "%d.%09ld\t%lf\n",
                     log_tv_sec[i], log_tv_nsec[i], log_current[i]);
+
                 fflush(fp);
             }
-            flush_data_done[0] = 1;
+            fclose(fp);
+            //bcm2835_delay(2000);
+            flush_data_two = 1;
+            while (flush_data_one == 0 || flush_data_two == 0 || flush_data_thr == 0) {
+                puts("Writing to file in progress...\n");
+            }
+            break;
         }
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
@@ -417,6 +434,8 @@ void magnet_thread(void* data)
     timespec2str(buf, &now);
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tposition\n");
+
+    flush_data_thr = 1;
 
     for (;;) {
 
