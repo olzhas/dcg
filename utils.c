@@ -86,6 +86,9 @@ double discrete_diff(const struct state_* pstate)
 
     x_old[1] = x_old[0];
     x_old[0] = pstate->x;
+    if (fabs(dx) > 100000) {
+        dx = 0;
+    }
     return dx;
 
     //	printf("Diff. Done. and dx = %f\n", derivative);

@@ -2,8 +2,7 @@
 % generate three plot with 3 subplots (EMG, k, power)
 % by Olzhas Adiyatov
 % 09/05/2015
-clear all;
-close all;
+
 
 %% file parsing, file output from opensignals
 f = fopen('shaftencoder.log','r');
@@ -22,11 +21,11 @@ x_derv = data{4};
 
 %% plotting
 
-figure;
-subplot(2,1,1);
-plot(t, x, '.r', t, x_filt);
+% subplot(2,1,1);
+% plot(t, x, '.r', t, x_filt);
+plot(t, x_filt);
 ylim([0 100]);
 grid on;
-subplot(2,1,2);
-plot(t, x_derv);
-grid on;
+% subplot(2,1,2);
+% plot(t, x_derv);
+% grid on;

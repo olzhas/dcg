@@ -20,9 +20,9 @@
 
 pthread_mutex_t mtx_read = PTHREAD_MUTEX_INITIALIZER;
 
-volatile struct position_output pos_out = { 0 };
-volatile struct current_output curr_out = { 0 };
-volatile struct magnet_output magn_out = { 0 };
+struct position_output pos_out = { 0 };
+struct current_output curr_out = { 0 };
+struct magnet_output magn_out = { 0 };
 
 void intHandler(int dummy)
 {
@@ -43,7 +43,7 @@ void intHandler(int dummy)
 
     char buf[] = "2015-12-31 12:59:59.123456789";
     timespec2str(buf, &pos_out.now);
-    fprintf(fp, "samples: %ld\n", pos_out.log_iter);
+    fprintf(fp, "samples: %lld\n", pos_out.log_iter);
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tencoder\n");
 
@@ -68,7 +68,7 @@ void intHandler(int dummy)
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
     timespec2str(buf, &curr_out.now);
-    fprintf(fp, "samples: %ld\n", curr_out.log_iter);
+    fprintf(fp, "samples: %lld\n", curr_out.log_iter);
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tcurrent\n");
 
@@ -92,7 +92,7 @@ void intHandler(int dummy)
         exit(EXIT_FAILURE); // TODO send sigint to main()
     }
     timespec2str(buf, &magn_out.now);
-    fprintf(fp, "samples: %ld\n", magn_out.log_iter);
+    fprintf(fp, "samples: %lld\n", magn_out.log_iter);
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tmagnet\n");
 
@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
     };
 
     /* store information about the state */
-    volatile struct state_ state;
+    struct state_ state;
     state.config = &config;
     state.x_desired = strtod(argv[3], NULL);
 
@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
             handle_error_en(-1, "timer_settime");
     }
 
-    //bcm2835_gpio_write(MOTOR_D3, HIGH);
+    bcm2835_gpio_write(MOTOR_D3, HIGH);
     printf("Started.\n");
 
     printf("\n Press CTRL-C to stop the motor.\n");
@@ -254,19 +254,53 @@ int main(int argc, char* argv[])
     /* PROCEDURES START */
     bcm2835_delay(1000);
 
-#define DELAY_KMIN 60000
-#define DELAY_STEP 2000
-#define DELAY_KMAX 60000
+    int experiment = 0;
 
-    state.x_desired = 0;
-    bcm2835_delay(DELAY_KMIN);
-    for (int i = 0; i < 90; i += 10) {
-        state.x_desired = i;
-        bcm2835_delay(DELAY_STEP);
+    if (experiment == 0) {
+
+        const int DELAY_KMIN = 60000;
+        const int DELAY_STEP = 800;
+        const int DELAY_KMAX = 20000;
+
+        state.x_desired = 5;
+        bcm2835_delay(DELAY_KMIN);
+        for (int i = 10; i <= 86.7; i += 5) {
+            state.x_desired = i;
+            bcm2835_delay(DELAY_STEP);
+        }
+        state.x_desired = 86.7;
+        bcm2835_delay(DELAY_KMAX);
     }
-    state.x_desired = 80;
-    bcm2835_delay(DELAY_KMAX);
 
+    if (experiment == 1) {
+        printf("Please enter the desired position:\n");
+        double x_desired = 10.0;
+        while (x_desired < 87.0) {
+            scanf("%lf", &x_desired);
+            printf("x_desired = %lf\n", x_desired);
+            state.x_desired = x_desired;
+        }
+    }
+
+    if (experiment == 2) {
+
+        const int begin_delay = 1000;
+        const int DELAY_KMIN = 20000;
+        const int DELAY_STEP = 500;
+        const int DELAY_KMAX = 20000;
+
+        state.x_desired = 10;
+        bcm2835_delay(begin_delay);
+
+        state.x_desired = 86;
+        bcm2835_delay(DELAY_KMIN);
+        for (int i = 86; i >= 10; i -= 5) {
+            state.x_desired = i;
+            bcm2835_delay(DELAY_STEP);
+        }
+        state.x_desired = 5;
+        bcm2835_delay(DELAY_KMAX);
+    }
     /* PROCEDURES END */
 
     intHandler(0);

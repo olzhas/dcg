@@ -50,7 +50,7 @@ int ENCODER_init()
 double ENCODER_read()
 {
     static int run = 0;
-    static uint64_t zero_shift;
+    static uint32_t zero_shift = 0;
     // mutex lock
     pthread_mutex_lock(&mtx_read);
     bcm2835_gpio_fsel(D0, BCM2835_GPIO_FSEL_INPT);
@@ -71,7 +71,7 @@ double ENCODER_read()
     bcm2835_gpio_set_pud(D6, BCM2835_GPIO_PUD_DOWN);
     bcm2835_gpio_set_pud(D7, BCM2835_GPIO_PUD_DOWN);
 
-    volatile double encoder_array = 0;
+    volatile uint32_t encoder_array = 0;
     uint64_t readbit = 0;
 
     // setting OE for counter
@@ -144,12 +144,22 @@ double ENCODER_read()
     // convert data to decimal
     //    if(encoder_array - )
     //encoder_array = encoder_array & 0x00FFFFFF;
-    if (run == 0) {
+    if (run == 0 && encoder_array != 0) {
+
+        bcm2835_gpio_fsel(RST_COUNT, BCM2835_GPIO_FSEL_OUTP); // reset count
+        bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
+        bcm2835_delayMicroseconds(1);
+        bcm2835_gpio_write(RST_COUNT, LOW); // now start counting
+        bcm2835_delayMicroseconds(1);
+        bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
         run = 1;
-        zero_shift = encoder_array;
+
+        return ENCODER_read();
     }
 
-    encoder_array = encoder_array - zero_shift;
+    //printf("%x\n", encoder_array);
+
+    //encoder_array = encoder_array - zero_shift;
     double count = encoder_array;
 
     double length = (double)count * 2.0 / (4096.0 * 4.8);
