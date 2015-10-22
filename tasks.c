@@ -50,7 +50,7 @@ void control_thread(void* data)
     timeout.tv_sec = 0;
     timeout.tv_nsec = 1000;
 
-    volatile struct state_* pstate = thread_info->pstate;
+    struct state_* pstate = thread_info->pstate;
     /*==========================*/
 
     // TODO move somewhere else
@@ -69,17 +69,23 @@ void control_thread(void* data)
     struct timespec toc;
 
     pos_out.log_iter = 0;
+    bcm2835_gpio_fsel(RST_COUNT, BCM2835_GPIO_FSEL_OUTP); // reset count
     bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
+    bcm2835_delayMicroseconds(1);
+    bcm2835_gpio_write(RST_COUNT, LOW); // now start counting
+    //bcm2835_delayMicroseconds(1);
+    //bcm2835_gpio_write(RST_COUNT, HIGH); // now start counting
     for (;;) {
+
         s = sigtimedwait(set, &sig, &timeout); // locks execution
         if (s >= 0) {
-
             if (s != SIGRTMIN) {
                 write(STDERR_FILENO, "wrong signal\n", sizeof("wrong signal\n"));
                 continue;
             }
 
             // code for obtaining value from encoder IC
+            bcm2835_gpio_write(RST_COUNT, HIGH);
             pstate->x = ENCODER_read(); // mm distance
 
             // x = (x / 4.81) * 0.002;	// distance traveled by slider in metres

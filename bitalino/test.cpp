@@ -26,7 +26,8 @@ bool keypressed(void)
     return (select(FD_SETSIZE, &readfds, NULL, NULL, &readtimeout) == 1);
 }
 
-#define SAMPLES 300000 // 5 min
+//#define SAMPLES 300000 // 5 min
+#define SAMPLES 95000
 
 int run = 0;
 
@@ -92,6 +93,11 @@ int timespec2str(char* buf, struct timespec* ts)
 //==============================================================================
 void log2File()
 {
+
+    while (run != 1)
+        ;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     char* filename = get_filename("EMG");
     FILE* fp = fopen(filename, "w");
     // Open file for writing, no need to fclose, OS will do it
@@ -111,11 +117,8 @@ void log2File()
     fprintf(fp, "now: %s\n", buf);
     fprintf(fp, "timestamp\tEMG\n");
 
-    while (run != 1)
-        ;
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
     for (uint64_t i = 0; i < SAMPLES; i++) { // 5 min
+
         struct timespec toc;
         clock_gettime(CLOCK_REALTIME, &toc);
 
@@ -127,9 +130,6 @@ void log2File()
         }
 
         const BITalino::Frame& f = frames[i];
-        // fprintf(fp, "%d.%09d\t%d : %d %d %d %d ; %d %d %d %d %d %d\n", toc.tv_sec, toc.tv_nsec, f.seq,
-        //     f.digital[0], f.digital[1], f.digital[2], f.digital[3],
-        //     f.analog[0], f.analog[1], f.analog[2], f.analog[3], f.analog[4], f.analog[5]);
 
         fprintf(fp, "%d.%09d %d %d %d\n", toc.tv_sec, toc.tv_nsec,
             f.seq, f.analog[0], f.analog[1]);
@@ -138,8 +138,10 @@ void log2File()
             fflush(fp);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+
+    std::cout << "EMG DONE";
 }
 
 int main()
@@ -184,6 +186,7 @@ int main()
         do {
 
             dev.read(frames); // get frames from device
+            break;
 
         } while (!keypressed()); // until a key is pressed
 
