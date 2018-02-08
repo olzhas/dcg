@@ -9,13 +9,13 @@ Useful links
 Build
 =============
 ```
-# mkdir build && cd build
-# cmake ..
+$ mkdir build && cd build
+$ cmake ..
 ```
 
 if gcc-4.7 is not your default compiler
 ```
-# CC=gcc-4.7 cmake ..
+$ CC=gcc-4.7 cmake ..
 ```
 
 Remarks
